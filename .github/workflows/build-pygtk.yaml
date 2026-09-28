@@ -14,7 +14,7 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
 
 permissions:
-  contents: write
+  contents: read
 
 env:
   VCPKG_TRIPLET: x86-windows
@@ -122,14 +122,6 @@ jobs:
           name: ${{ env.GTK_BUILD_NAME }}
           path: ${{ env.GTK_BUILD_NAME }}.zip
           if-no-files-found: error
-
-      # Create GitHub Release when a tag is pushed
-      - name: Create Release
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
-        with:
-          files: ${{ env.GTK_BUILD_NAME }}.zip
-          generate_release_notes: true
 
   pygobject-build:
     name: Build pygobject
@@ -240,11 +232,26 @@ jobs:
           path: ${{ env.PYGOBJECT_WHL}}
           if-no-files-found: error
 
-      # Release when a tag is pushed
-      - name: Release
-        if: startsWith(github.ref, 'refs/tags/')
+  # One job creates the release, so parallel jobs don't race to create it
+  release:
+    name: Release
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    needs: [vcpkg-build, pygobject-build]
+    permissions:
+      contents: write # create the release and upload its files
+
+    steps:
+      - name: Download the build artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          merge-multiple: true
+
+      - name: Create Release
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
-          files: ${{ env.PYGOBJECT_WHL}}
-          generate_release_notes: false
+          files: |
+            gtk*.zip
+            pygobject-*.whl
+          generate_release_notes: true
           fail_on_unmatched_files: true
