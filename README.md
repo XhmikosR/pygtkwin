@@ -5,6 +5,9 @@ to use on Microsoft Windows. This includes introspection support
 and a PyGObject wheel. Consistent with PyPI packaging practices, we
 use Microsoft Visual C++ and vcpkg instead of gcc and MSYS2.
 
+Each release has a 32-bit (`x86-windows`) and a 64-bit (`x64-windows`)
+build, each with its own PyGObject wheel.
+
 As of 2026-09-09, this project builds:
 * Python 3.12.13
 * GTK 3.24.52
