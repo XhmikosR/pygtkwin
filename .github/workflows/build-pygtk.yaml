@@ -17,18 +17,28 @@ permissions:
   contents: read
 
 env:
-  VCPKG_TRIPLET: x86-windows
-  VCPKG_DEFAULT_HOST_TRIPLET: x86-windows
   VCPKG_OVERLAY_TRIPLETS: ${{ github.workspace }}/triplets
   GTK_VERSION: 3.24
 
 jobs:
   vcpkg-build:
-    name: Build python and PyGTK
+    name: Build python and PyGTK (${{ matrix.triplet }})
     runs-on: windows-latest
+    strategy:
+      # A cancelled matrix job would not save its vcpkg cache
+      fail-fast: false
+      matrix:
+        include:
+          - triplet: x86-windows
+            arch: x86
+          - triplet: x64-windows
+            arch: x64
 
     env:
       VCPKG_COMMIT: '7ece2c79b95131924820fb67c977abb3c4602724'
+      VCPKG_TRIPLET: ${{ matrix.triplet }}
+      # gobject-introspection runs the built binaries, so host = target
+      VCPKG_DEFAULT_HOST_TRIPLET: ${{ matrix.triplet }}
 
     steps:
       - name: Checkout code
@@ -37,7 +47,7 @@ jobs:
       - name: Set up pygtkwin environment
         uses: ./actions/pygtkwin-env
         with:
-          arch: x86
+          arch: ${{ matrix.arch }}
 
       - name: Cache vcpkg binary cache
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
@@ -45,10 +55,13 @@ jobs:
           path: |
             ~/.cache/vcpkg/archives
             C:\Users\runneradmin\AppData\Local\vcpkg\archives
-          key: ${{ runner.os }}-vcpkg-${{ env.VCPKG_COMMIT }}-${{ hashFiles('0002-vcpkg-glib-unc.patch', 'librsvg-pixbufloader-svg.patch', 'gdk-pixbuf-png-only.patch', 'triplets/**') }}
+          key: ${{ runner.os }}-vcpkg-${{ matrix.triplet }}-${{ env.VCPKG_COMMIT }}-${{ hashFiles('0002-vcpkg-glib-unc.patch', 'librsvg-pixbufloader-svg.patch', 'gdk-pixbuf-png-only.patch', format('triplets/{0}.cmake', matrix.triplet)) }}
+          # The last one matches caches saved before the matrix. Archives are
+          # named by ABI hash, so another triplet's archives are just unused.
           restore-keys: |
+            ${{ runner.os }}-vcpkg-${{ matrix.triplet }}-${{ env.VCPKG_COMMIT }}-
+            ${{ runner.os }}-vcpkg-${{ matrix.triplet }}-
             ${{ runner.os }}-vcpkg-${{ env.VCPKG_COMMIT }}-
-            ${{ runner.os }}-vcpkg-
 
       - name: vcpkg build
         shell: pwsh
@@ -74,7 +87,7 @@ jobs:
           $binarySource = "clear;files,$cacheDir,readwrite"
           python -m ensurepip --upgrade
           python -m pip install virtualenv
-          ./vcpkg install python3:x86-windows fontconfig[tools]:x86-windows gobject-introspection:x86-windows harfbuzz[introspection]:x86-windows pango[introspection]:x86-windows gdk-pixbuf[introspection]:x86-windows atk[introspection]:x86-windows libcroco:x86-windows librsvg:x86-windows gtk3[introspection]:x86-windows --binarysource=$binarySource
+          ./vcpkg install python3 fontconfig[tools] gobject-introspection harfbuzz[introspection] pango[introspection] gdk-pixbuf[introspection] atk[introspection] libcroco librsvg gtk3[introspection] --triplet $env:VCPKG_TRIPLET --binarysource=$binarySource
           if ($LASTEXITCODE -ne 0) { throw "vcpkg install failed" }
 
       - name: Generate platform-specific typelibs
@@ -93,7 +106,8 @@ jobs:
           cp -a vcpkg/installed vcpkg_installed
           echo "Size before cleanup: $(du -sh vcpkg_installed)"
           rm -rf vcpkg_installed/${{ env.VCPKG_TRIPLET }}/debug vcpkg_installed/${{ env.VCPKG_TRIPLET }}/bin/*.pdb
-          rm -rf vcpkg_installed/vcpkg vcpkg_installed/x64-windows
+          # Keep only the target triplet, not vcpkg's metadata or another tree
+          find vcpkg_installed -mindepth 1 -maxdepth 1 ! -name '${{ env.VCPKG_TRIPLET }}' -exec rm -rf {} +
           echo "Size after cleanup: $(du -sh vcpkg_installed)"
 
       - name: Package the build
@@ -124,11 +138,22 @@ jobs:
           if-no-files-found: error
 
   pygobject-build:
-    name: Build pygobject
+    name: Build pygobject (${{ matrix.triplet }})
     runs-on: windows-latest
     needs: vcpkg-build
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - triplet: x86-windows
+            arch: x86
+            wheel: win32
+          - triplet: x64-windows
+            arch: x64
+            wheel: win_amd64
 
     env:
+      VCPKG_TRIPLET: ${{ matrix.triplet }}
       PYGOBJECT_VERSION: 3.58.0
       PYGOBJECT_SHA256: 45068697de3ffe46840ca369705f23118b34db4f7deb63f6eff079a6734ddcca
 
@@ -139,7 +164,7 @@ jobs:
       - name: Set up pygtkwin environment
         uses: ./actions/pygtkwin-env
         with:
-          arch: x86
+          arch: ${{ matrix.arch }}
 
       - name: Download PyGTK artifacts
         uses: dawidd6/action-download-artifact@854e2de9396304899dbe03bf9995fd73533190d1 # v4
@@ -196,7 +221,7 @@ jobs:
           ${{ env.PYTHON }} -m build --wheel
           dir /b /s *.whl
 
-          echo PYGOBJECT_WHL=${{ github.workspace }}\pygobject-${{ env.PYGOBJECT_VERSION }}\dist\pygobject-${{ env.PYGOBJECT_VERSION }}-cp312-cp312-win32.whl>>%GITHUB_ENV%
+          echo PYGOBJECT_WHL=${{ github.workspace }}\pygobject-${{ env.PYGOBJECT_VERSION }}\dist\pygobject-${{ env.PYGOBJECT_VERSION }}-cp312-cp312-${{ matrix.wheel }}.whl>>%GITHUB_ENV%
 
       - name: Test wheel
         shell: cmd
@@ -228,7 +253,7 @@ jobs:
       - name: Upload wheel
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: pygobject-wheel
+          name: pygobject-wheel-${{ matrix.triplet }}
           path: ${{ env.PYGOBJECT_WHL}}
           if-no-files-found: error
 
