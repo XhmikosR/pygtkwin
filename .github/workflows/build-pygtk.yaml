@@ -3,11 +3,21 @@ name: Build and Package PyGTK
 on:
   push:
     branches:
-      - main
-      - dev*
+      - '**'
+      - '!dependabot/**' # avoid duplicate runs; the pull_request event handles dependabot PRs
     tags:
       - 'v*'
+    paths-ignore: &paths-ignore
+      - '.github/dependabot.yml'
+      - '.github/workflows/build-gtk-themes.yaml'
+      - '.github/workflows/zizmor.yml'
+      - '.gitattributes'
+      - '.gitignore'
+      - 'LICENSE'
+      - 'make_gtk_theme.sh'
+      - 'README.md'
   pull_request:
+    paths-ignore: *paths-ignore
   workflow_dispatch:
 
 concurrency:
