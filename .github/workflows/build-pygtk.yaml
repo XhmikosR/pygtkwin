@@ -177,10 +177,9 @@ jobs:
           arch: ${{ matrix.arch }}
 
       - name: Download PyGTK artifacts
-        uses: dawidd6/action-download-artifact@854e2de9396304899dbe03bf9995fd73533190d1 # v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: ${{ env.GTK_BUILD_NAME }}
-          run_id: ${{ github.run_id }}
 
       - name: Extract PyGTK files
         shell: cmd
