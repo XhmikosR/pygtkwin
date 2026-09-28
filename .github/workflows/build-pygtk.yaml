@@ -35,6 +35,7 @@ jobs:
   vcpkg-build:
     name: Build python and PyGTK (${{ matrix.triplet }})
     runs-on: windows-latest
+    timeout-minutes: 180
     strategy:
       # A cancelled matrix job would not save its vcpkg cache
       fail-fast: false
@@ -53,15 +54,21 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Set up pygtkwin environment
-        uses: ./actions/pygtkwin-env
+        uses: $/actions/pygtkwin-env
         with:
           arch: ${{ matrix.arch }}
 
       - name: Cache vcpkg binary cache
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        # Skipped for tags: vcpkg trusts archives by their names, so a poisoned
+        # cache could reach a release.
+        if: github.ref_type != 'tag'
+        # zizmor: ignore[cache-poisoning] releases build with a cold cache, see above
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.cache/vcpkg/archives
@@ -80,12 +87,12 @@ jobs:
           $ErrorActionPreference = 'Stop'
           git clone https://github.com/microsoft/vcpkg.git ./vcpkg
           cd ./vcpkg
-          git checkout ${{ env.VCPKG_COMMIT }}
-          git apply --ignore-whitespace --whitespace=nowarn ${{ github.workspace }}/0002-vcpkg-glib-unc.patch
+          git checkout $env:VCPKG_COMMIT
+          git apply --ignore-whitespace --whitespace=nowarn "$env:GITHUB_WORKSPACE/0002-vcpkg-glib-unc.patch"
           if ($LASTEXITCODE -ne 0) { throw "git apply 0002-vcpkg-glib-unc.patch failed" }
-          git apply --ignore-whitespace --whitespace=nowarn ${{ github.workspace }}/gdk-pixbuf-png-only.patch
+          git apply --ignore-whitespace --whitespace=nowarn "$env:GITHUB_WORKSPACE/gdk-pixbuf-png-only.patch"
           if ($LASTEXITCODE -ne 0) { throw "git apply gdk-pixbuf-png-only.patch failed" }
-          Copy-Item ${{ github.workspace }}/librsvg-pixbufloader-svg.patch ./ports/librsvg/add-pixbufloader-svg.patch
+          Copy-Item "$env:GITHUB_WORKSPACE/librsvg-pixbufloader-svg.patch" ./ports/librsvg/add-pixbufloader-svg.patch
           (Get-Content ./ports/librsvg/portfile.cmake) -replace 'meson-pkgconfig-and-def-file\.patch', "meson-pkgconfig-and-def-file.patch`n        add-pixbufloader-svg.patch" | Set-Content ./ports/librsvg/portfile.cmake
           ./bootstrap-vcpkg.bat
           ./vcpkg format-manifest ports/gdk-pixbuf/vcpkg.json
@@ -104,34 +111,34 @@ jobs:
       - name: Generate platform-specific typelibs
         shell: bash
         run: |
-          ./generate-platform-typelibs.sh vcpkg/installed/${{ env.VCPKG_TRIPLET }}
+          ./generate-platform-typelibs.sh "vcpkg/installed/$VCPKG_TRIPLET"
 
       - name: Validate build
         shell: bash
         run: |
-          ./validate-build.sh vcpkg/installed/${{ env.VCPKG_TRIPLET }}
+          ./validate-build.sh "vcpkg/installed/$VCPKG_TRIPLET"
 
       - name: Prepare for packing
         shell: bash
         run: |
           cp -a vcpkg/installed vcpkg_installed
           echo "Size before cleanup: $(du -sh vcpkg_installed)"
-          rm -rf vcpkg_installed/${{ env.VCPKG_TRIPLET }}/debug vcpkg_installed/${{ env.VCPKG_TRIPLET }}/bin/*.pdb
+          rm -rf "vcpkg_installed/$VCPKG_TRIPLET/debug" "vcpkg_installed/$VCPKG_TRIPLET"/bin/*.pdb
           # Keep only the target triplet, not vcpkg's metadata or another tree
-          find vcpkg_installed -mindepth 1 -maxdepth 1 ! -name '${{ env.VCPKG_TRIPLET }}' -exec rm -rf {} +
+          find vcpkg_installed -mindepth 1 -maxdepth 1 ! -name "$VCPKG_TRIPLET" -exec rm -rf {} +
           echo "Size after cleanup: $(du -sh vcpkg_installed)"
 
       - name: Package the build
-        shell: cmd
+        shell: cmd # zizmor: ignore[misfeature] this step's script is written in cmd/batch syntax
         run: |
-          7z a -tzip -mx=9 ${{ env.GTK_BUILD_NAME }}.zip vcpkg_installed
-          certutil -hashfile ${{ env.GTK_BUILD_NAME }}.zip SHA256
+          7z a -tzip -mx=9 %GTK_BUILD_NAME%.zip vcpkg_installed
+          certutil -hashfile %GTK_BUILD_NAME%.zip SHA256
 
       - name: Test the build
-        shell: cmd
+        shell: cmd # zizmor: ignore[misfeature] this step's script is written in cmd/batch syntax
         run: |
-          ${{ env.PYTHON }} -V
-          ${{ env.PYTHON }} show_versions.py
+          "%PYTHON%" -V
+          "%PYTHON%" show_versions.py
           :: pip is not installed
 
       - name: Smoke test HTTPS (TLS 1.2/1.3)
@@ -142,7 +149,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "HTTPS smoke test failed" }
 
       - name: Upload the build artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ${{ env.GTK_BUILD_NAME }}
           path: ${{ env.GTK_BUILD_NAME }}.zip
@@ -151,6 +158,7 @@ jobs:
   pygobject-build:
     name: Build pygobject (${{ matrix.triplet }})
     runs-on: windows-latest
+    timeout-minutes: 30
     needs: vcpkg-build
     strategy:
       fail-fast: false
@@ -170,86 +178,88 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Set up pygtkwin environment
-        uses: ./actions/pygtkwin-env
+        uses: $/actions/pygtkwin-env
         with:
           arch: ${{ matrix.arch }}
 
       - name: Download PyGTK artifacts
-        uses: dawidd6/action-download-artifact@854e2de9396304899dbe03bf9995fd73533190d1 # v4
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: ${{ env.GTK_BUILD_NAME }}
-          run_id: ${{ github.run_id }}
 
       - name: Extract PyGTK files
-        shell: cmd
+        shell: cmd # zizmor: ignore[misfeature] this step's script is written in cmd/batch syntax
         run: |
-          certutil -hashfile ${{ env.GTK_BUILD_NAME }}.zip SHA256
-          7z x ${{ env.GTK_BUILD_NAME }}.zip
-          if not exist "${{ env.PYTHON }}" (
-            echo Error: Python executable not found at ${{ env.PYTHON }}
+          certutil -hashfile %GTK_BUILD_NAME%.zip SHA256
+          7z x %GTK_BUILD_NAME%.zip
+          if not exist "%PYTHON%" (
+            echo Error: Python executable not found at %PYTHON%
             exit /b 1
           )
 
       - name: Download and extract PyGObject source
         shell: bash
         run: |
-          curl -fL https://download.gnome.org/sources/pygobject/3.58/pygobject-${{ env.PYGOBJECT_VERSION }}.tar.gz -o pygobject.tar.gz
+          curl -fL "https://download.gnome.org/sources/pygobject/3.58/pygobject-$PYGOBJECT_VERSION.tar.gz" -o pygobject.tar.gz
           certutil -hashfile pygobject.tar.gz SHA256
-          echo "${{ env.PYGOBJECT_SHA256 }} pygobject.tar.gz" | sha256sum -c || exit 1
+          echo "$PYGOBJECT_SHA256 pygobject.tar.gz" | sha256sum -c || exit 1
           tar xf pygobject.tar.gz
 
       - name: Install build dependencies
-        shell: cmd
+        shell: cmd # zizmor: ignore[misfeature] this step's script is written in cmd/batch syntax
         run: |
-          ${{ env.PYTHON }} -m ensurepip --upgrade
-          ${{ env.PYTHON }} -m pip install --upgrade pip
-          ${{ env.PYTHON }} -m pip install -r requirements.txt
+          "%PYTHON%" -m ensurepip --upgrade
+          "%PYTHON%" -m pip install --upgrade pip
+          "%PYTHON%" -m pip install -r requirements.txt
 
       - name: Copy python312.lib to python libs directory
         shell: pwsh
         run: |
           echo Searching for required files
-          Get-ChildItem -Path "${{ env.VCPKG_DIR }}" -Include python312.lib -Recurse
-          Get-ChildItem -Path "${{ env.VCPKG_DIR }}" -Include Gtk-3.0.typelib -Recurse
+          Get-ChildItem -Path "$env:VCPKG_DIR" -Include python312.lib -Recurse
+          Get-ChildItem -Path "$env:VCPKG_DIR" -Include Gtk-3.0.typelib -Recurse
           echo Creating python libs directory
-          New-Item -Path "${{ env.PYTHON_DIR }}\libs" -ItemType Directory
+          New-Item -Path "$env:PYTHON_DIR\libs" -ItemType Directory
           echo Copying python312.lib to libs directory
-          Copy-Item -Path "${{ env.VCPKG_DIR }}\lib\python312.lib" -Destination "${{ env.PYTHON_DIR }}\libs\"
+          Copy-Item -Path "$env:VCPKG_DIR\lib\python312.lib" -Destination "$env:PYTHON_DIR\libs\"
 
       - name: Build wheel
-        shell: cmd
+        shell: cmd # zizmor: ignore[misfeature] this step's script is written in cmd/batch syntax
         env:
           PKG_CONFIG: ${{ env.VCPKG_DIR }}\tools\python3\Lib\site-packages\pkgconf\.bin\pkgconf.exe
           PKG_CONFIG_PATH: ${{ env.VCPKG_DIR }}\lib\pkgconfig
           CC: cl
           CXX: cl
+          WHEEL_TAG: ${{ matrix.wheel }}
         run: |
-          for /F "usebackq" %%i in (`${{ env.PKG_CONFIG }} --cflags python-3.12`) do set CL=%%i
-          cd pygobject-${{ env.PYGOBJECT_VERSION }}
-          ${{ env.PYTHON }} -m build --wheel
+          for /F "usebackq" %%i in (`%PKG_CONFIG% --cflags python-3.12`) do set CL=%%i
+          cd pygobject-%PYGOBJECT_VERSION%
+          "%PYTHON%" -m build --wheel
           dir /b /s *.whl
 
-          echo PYGOBJECT_WHL=${{ github.workspace }}\pygobject-${{ env.PYGOBJECT_VERSION }}\dist\pygobject-${{ env.PYGOBJECT_VERSION }}-cp312-cp312-${{ matrix.wheel }}.whl>>%GITHUB_ENV%
+          echo PYGOBJECT_WHL=%GITHUB_WORKSPACE%\pygobject-%PYGOBJECT_VERSION%\dist\pygobject-%PYGOBJECT_VERSION%-cp312-cp312-%WHEEL_TAG%.whl>>%GITHUB_ENV%
 
       - name: Test wheel
-        shell: cmd
+        shell: cmd # zizmor: ignore[misfeature] this step's script is written in cmd/batch syntax
         run: |
-          if not exist "${{ env.PYGOBJECT_WHL }}" (
-            echo Error: ${{ env.PYGOBJECT_WHL }} does not exist.
+          if not exist "%PYGOBJECT_WHL%" (
+            echo Error: %PYGOBJECT_WHL% does not exist.
             exit /b 1
           )
-          ${{ env.PYTHON }} -m pip install "${{ env.PYGOBJECT_WHL }}"
+          "%PYTHON%" -m pip install "%PYGOBJECT_WHL%"
 
-          robocopy /MIR /COPYALL ${{ env.VCPKG_DIR }}\lib\girepository-1.0 ${{ env.PYTHON_DIR }}\lib\girepository-1.0
-          set PATH=%PATH%;${{ env.VCPKG_DIR }}\bin;${{ env.VCPKG_DIR }}\lib
-          set GI_TYPELIB_PATH=${{ env.VCPKG_DIR }}\lib\girepository-1.0
-          ${{ env.PYTHON }} show_versions.py --dll-directory=${{ env.VCPKG_DIR }}\bin
+          robocopy /MIR /COPYALL %VCPKG_DIR%\lib\girepository-1.0 %PYTHON_DIR%\lib\girepository-1.0
+          set PATH=%PATH%;%VCPKG_DIR%\bin;%VCPKG_DIR%\lib
+          set GI_TYPELIB_PATH=%VCPKG_DIR%\lib\girepository-1.0
+          "%PYTHON%" show_versions.py --dll-directory=%VCPKG_DIR%\bin
 
           set GI_WARNING_LOG=%TEMP%\pygobject-platform-gir-stderr.txt
-          ${{ env.PYTHON }} -c "import os; os.add_dll_directory(r'${{ env.VCPKG_DIR }}\bin'); import gi; gi.require_version('Gtk', '3.0'); from gi.repository import Gio, GioWin32, GLibWin32, Gtk; assert hasattr(GLibWin32, 'get_command_line'); assert hasattr(GioWin32.InputStream, 'get_handle'); assert hasattr(GioWin32.OutputStream, 'get_handle')" 2>"%GI_WARNING_LOG%"
+          "%PYTHON%" -c "import os; os.add_dll_directory(r'%VCPKG_DIR%\bin'); import gi; gi.require_version('Gtk', '3.0'); from gi.repository import Gio, GioWin32, GLibWin32, Gtk; assert hasattr(GLibWin32, 'get_command_line'); assert hasattr(GioWin32.InputStream, 'get_handle'); assert hasattr(GioWin32.OutputStream, 'get_handle')" 2>"%GI_WARNING_LOG%"
           if errorlevel 1 (
             type "%GI_WARNING_LOG%"
             exit /b 1
@@ -262,7 +272,7 @@ jobs:
           exit /b 0
 
       - name: Upload wheel
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: pygobject-wheel-${{ matrix.triplet }}
           path: ${{ env.PYGOBJECT_WHL}}
@@ -273,18 +283,19 @@ jobs:
     name: Release
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: [vcpkg-build, pygobject-build]
     permissions:
       contents: write # create the release and upload its files
 
     steps:
       - name: Download the build artifacts
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           merge-multiple: true
 
       - name: Create Release
-        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
           files: |
             gtk*.zip
