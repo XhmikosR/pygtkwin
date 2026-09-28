@@ -16,6 +16,8 @@ on:
       - '.gitignore'
       - 'LICENSE'
       - 'make_gtk_theme.sh'
+      - 'package-lock.json'
+      - 'package.json'
       - 'README.md'
   pull_request:
     paths-ignore: *paths-ignore
