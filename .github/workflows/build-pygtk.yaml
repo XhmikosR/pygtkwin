@@ -129,13 +129,13 @@ jobs:
           echo "Size after cleanup: $(du -sh vcpkg_installed)"
 
       - name: Package the build
-        shell: cmd
+        shell: cmd # zizmor: ignore[misfeature] this step's script is written in cmd/batch syntax
         run: |
           7z a -tzip -mx=9 %GTK_BUILD_NAME%.zip vcpkg_installed
           certutil -hashfile %GTK_BUILD_NAME%.zip SHA256
 
       - name: Test the build
-        shell: cmd
+        shell: cmd # zizmor: ignore[misfeature] this step's script is written in cmd/batch syntax
         run: |
           "%PYTHON%" -V
           "%PYTHON%" show_versions.py
@@ -193,7 +193,7 @@ jobs:
           name: ${{ env.GTK_BUILD_NAME }}
 
       - name: Extract PyGTK files
-        shell: cmd
+        shell: cmd # zizmor: ignore[misfeature] this step's script is written in cmd/batch syntax
         run: |
           certutil -hashfile %GTK_BUILD_NAME%.zip SHA256
           7z x %GTK_BUILD_NAME%.zip
@@ -211,7 +211,7 @@ jobs:
           tar xf pygobject.tar.gz
 
       - name: Install build dependencies
-        shell: cmd
+        shell: cmd # zizmor: ignore[misfeature] this step's script is written in cmd/batch syntax
         run: |
           "%PYTHON%" -m ensurepip --upgrade
           "%PYTHON%" -m pip install --upgrade pip
@@ -229,7 +229,7 @@ jobs:
           Copy-Item -Path "$env:VCPKG_DIR\lib\python312.lib" -Destination "$env:PYTHON_DIR\libs\"
 
       - name: Build wheel
-        shell: cmd
+        shell: cmd # zizmor: ignore[misfeature] this step's script is written in cmd/batch syntax
         env:
           PKG_CONFIG: ${{ env.VCPKG_DIR }}\tools\python3\Lib\site-packages\pkgconf\.bin\pkgconf.exe
           PKG_CONFIG_PATH: ${{ env.VCPKG_DIR }}\lib\pkgconfig
@@ -245,7 +245,7 @@ jobs:
           echo PYGOBJECT_WHL=%GITHUB_WORKSPACE%\pygobject-%PYGOBJECT_VERSION%\dist\pygobject-%PYGOBJECT_VERSION%-cp312-cp312-%WHEEL_TAG%.whl>>%GITHUB_ENV%
 
       - name: Test wheel
-        shell: cmd
+        shell: cmd # zizmor: ignore[misfeature] this step's script is written in cmd/batch syntax
         run: |
           if not exist "%PYGOBJECT_WHL%" (
             echo Error: %PYGOBJECT_WHL% does not exist.
