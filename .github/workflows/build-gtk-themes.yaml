@@ -3,11 +3,16 @@ name: Build GTK themes
 on:
   push:
     branches:
-      - main
-      - dev*
+      - 'main'
+      - 'dev*'
+      - '!dependabot/**' # avoid duplicate runs; the pull_request event handles dependabot PRs
     tags:
       - 'v*'
+    paths: &paths
+      - '.github/workflows/build-gtk-themes.yaml'
+      - 'make_gtk_theme.sh'
   pull_request:
+    paths: *paths
   workflow_dispatch:
 
 permissions:
