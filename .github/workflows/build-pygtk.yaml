@@ -62,6 +62,10 @@ jobs:
           arch: ${{ matrix.arch }}
 
       - name: Cache vcpkg binary cache
+        # Skipped for tags: vcpkg trusts archives by their names, so a poisoned
+        # cache could reach a release. A cold build takes about 50 minutes.
+        if: github.ref_type != 'tag'
+        # zizmor: ignore[cache-poisoning] releases build with a cold cache, see above
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
