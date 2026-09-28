@@ -59,7 +59,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up pygtkwin environment
-        uses: ./actions/pygtkwin-env
+        uses: $/actions/pygtkwin-env
         with:
           arch: ${{ matrix.arch }}
 
@@ -183,7 +183,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up pygtkwin environment
-        uses: ./actions/pygtkwin-env
+        uses: $/actions/pygtkwin-env
         with:
           arch: ${{ matrix.arch }}
 
