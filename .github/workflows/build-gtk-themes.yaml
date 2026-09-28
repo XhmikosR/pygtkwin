@@ -10,6 +10,8 @@ on:
     paths: &paths
       - '.github/workflows/build-gtk-themes.yaml'
       - 'make_gtk_theme.sh'
+      - 'package.json'
+      - 'package-lock.json'
   pull_request:
     paths: *paths
   workflow_dispatch:
@@ -47,10 +49,12 @@ jobs:
 
       - name: Install svgo
         # Ignore scripts to avoid potential security issues.
-        run: npm install -g --ignore-scripts svgo@3.3.4 && svgo --version
+        run: npm ci --ignore-scripts
 
       - name: Build GTK themes
-        run: bash make_gtk_theme.sh
+        run: |
+          export PATH="$PWD/node_modules/.bin:$PATH"
+          bash make_gtk_theme.sh
 
       - name: Upload themes
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
