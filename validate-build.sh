@@ -94,7 +94,7 @@ echo "=== Debloat metrics ==="
 gtk_dll=$(find "$bindir" -maxdepth 1 -name 'gtk-3-*.dll' -type f | head -n1)
 print_metric 'gtk3_dll' "${gtk_dll#$dir/}" "$gtk_dll"
 # openssl DLL is the openssl debloat target (0005-vcpkg-openssl-debloat.patch).
-ssl_dll=$(find "$bindir" -maxdepth 1 -name 'libssl-3.dll' -type f | head -n1)
+ssl_dll=$(find "$bindir" -maxdepth 1 -name 'libssl-3*.dll' -type f | head -n1)
 print_metric 'openssl_dll' "${ssl_dll#$dir/}" "$ssl_dll"
 # Secondary DLLs affected by the debloat configuration.
 for name in 'librsvg-2-*.dll' 'libcroco-*.dll' 'gdk_pixbuf-*.dll' 'libgtk-3-*.dll'; do
