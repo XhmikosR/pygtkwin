@@ -14,6 +14,22 @@ fi
 
 errors=0
 
+# Machine field of the PE header: 014c = x86, 8664 = x64
+case "$(basename "$dir")" in
+    x86-windows) bits=32 machine=014c ;;
+    x64-windows) bits=64 machine=8664 ;;
+    *)
+        echo "ERROR: unknown triplet: $(basename "$dir")" >&2
+        exit 1
+        ;;
+esac
+
+pe_machine() {
+    local off
+    off=$(od -An -tu4 -j60 -N4 "$1" | tr -d ' ')
+    od -An -tx2 -j$((off + 4)) -N2 "$1" | tr -d ' '
+}
+
 check_glob() {
     local pattern="$1" label="$2" subdir="$3"
     local searchdir="$dir/$subdir"
@@ -41,6 +57,19 @@ check_glob 'glib-*.dll'           'glib DLL'             'bin'
 check_glob 'libxml2.dll'          'libxml2 DLL'          'bin'
 check_glob 'GLibWin32-2.0.typelib' 'GLibWin32 typelib'   'lib/girepository-1.0'
 check_glob 'GioWin32-2.0.typelib'  'GioWin32 typelib'    'lib/girepository-1.0'
+check_glob "gspawn-win$bits-helper.exe"         'gspawn helper'         'tools/glib'
+check_glob "gspawn-win$bits-helper-console.exe" 'gspawn console helper' 'tools/glib'
+
+# Lib/ is left out: pip ships launchers for every architecture there
+for f in "$bindir"/*.dll "$dir"/tools/*/*.dll "$dir"/tools/*/*.exe \
+         "$dir"/tools/python3/DLLs/*.pyd; do
+    [ -f "$f" ] || continue
+    m=$(pe_machine "$f")
+    if [ "$m" != "$machine" ]; then
+        echo "FAIL: ${f#$dir/} has PE machine $m, expected $machine"
+        errors=$((errors + 1))
+    fi
+done
 
 echo "=== Validation complete: $errors error(s) ==="
 
