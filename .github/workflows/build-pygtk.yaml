@@ -295,10 +295,14 @@ jobs:
           merge-multiple: true
 
       - name: Create Release
-        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
-        with:
-          files: |
-            gtk*.zip
-            pygobject-*.whl
-          generate_release_notes: true
-          fail_on_unmatched_files: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        # The themes workflow may have created the release already
+        run: |
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release upload "$TAG" --clobber gtk*.zip pygobject-*.whl
+          else
+            gh release create "$TAG" --verify-tag --generate-notes gtk*.zip pygobject-*.whl
+          fi
