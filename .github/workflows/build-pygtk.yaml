@@ -36,6 +36,8 @@ jobs:
 
       - name: Set up pygtkwin environment
         uses: ./actions/pygtkwin-env
+        with:
+          arch: x86
 
       - name: Cache vcpkg binary cache
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
@@ -144,6 +146,8 @@ jobs:
 
       - name: Set up pygtkwin environment
         uses: ./actions/pygtkwin-env
+        with:
+          arch: x86
 
       - name: Download PyGTK artifacts
         uses: dawidd6/action-download-artifact@854e2de9396304899dbe03bf9995fd73533190d1 # v4
