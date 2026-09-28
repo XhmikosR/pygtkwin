@@ -131,10 +131,10 @@ jobs:
           echo "Size after cleanup: $(du -sh vcpkg_installed)"
 
       - name: Package the build
-        shell: cmd # zizmor: ignore[misfeature] this step's script is written in cmd/batch syntax
+        shell: bash
         run: |
-          7z a -tzip -mx=9 %GTK_BUILD_NAME%.zip vcpkg_installed
-          certutil -hashfile %GTK_BUILD_NAME%.zip SHA256
+          7z a -bso0 -bsp0 -t7z -mx=9 -mmt=on "$GTK_BUILD_NAME.7z" vcpkg_installed
+          sha256sum "$GTK_BUILD_NAME.7z"
 
       - name: Test the build
         shell: cmd # zizmor: ignore[misfeature] this step's script is written in cmd/batch syntax
@@ -154,7 +154,7 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ${{ env.GTK_BUILD_NAME }}
-          path: ${{ env.GTK_BUILD_NAME }}.zip
+          path: ${{ env.GTK_BUILD_NAME }}.7z
           if-no-files-found: error
 
   pygobject-build:
@@ -195,14 +195,14 @@ jobs:
           name: ${{ env.GTK_BUILD_NAME }}
 
       - name: Extract PyGTK files
-        shell: cmd # zizmor: ignore[misfeature] this step's script is written in cmd/batch syntax
+        shell: bash
         run: |
-          certutil -hashfile %GTK_BUILD_NAME%.zip SHA256
-          7z x %GTK_BUILD_NAME%.zip
-          if not exist "%PYTHON%" (
-            echo Error: Python executable not found at %PYTHON%
-            exit /b 1
-          )
+          sha256sum "$GTK_BUILD_NAME.7z"
+          7z x -bso0 -bsp0 "$GTK_BUILD_NAME.7z"
+          if [ ! -f "$(cygpath -u "$PYTHON")" ]; then
+            echo "Error: Python executable not found at $PYTHON"
+            exit 1
+          fi
 
       - name: Download and extract PyGObject source
         shell: bash
@@ -304,7 +304,7 @@ jobs:
         # The themes workflow may have created the release already
         run: |
           if gh release view "$TAG" > /dev/null 2>&1; then
-            gh release upload "$TAG" --clobber gtk*.zip pygobject-*.whl
+            gh release upload "$TAG" --clobber gtk*.7z pygobject-*.whl
           else
-            gh release create "$TAG" --verify-tag --generate-notes gtk*.zip pygobject-*.whl
+            gh release create "$TAG" --verify-tag --generate-notes gtk*.7z pygobject-*.whl
           fi
