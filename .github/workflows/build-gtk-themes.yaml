@@ -52,9 +52,8 @@ jobs:
         run: npm ci --ignore-scripts
 
       - name: Build GTK themes
-        run: |
-          export PATH="$PWD/node_modules/.bin:$PATH"
-          bash make_gtk_theme.sh
+        # The script resets PATH, so pass it setup-node's bin dir
+        run: NODE_DIR="$(dirname "$(command -v node)")" ./make_gtk_theme.sh
 
       - name: Upload themes
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
