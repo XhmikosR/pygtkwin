@@ -94,7 +94,7 @@ jobs:
           path: |
             ~/.cache/vcpkg/archives
             C:\Users\runneradmin\AppData\Local\vcpkg\archives
-          key: ${{ runner.os }}-vcpkg-${{ matrix.triplet }}-${{ env.VCPKG_COMMIT }}-${{ hashFiles('patches/0002-vcpkg-glib-unc.patch', 'patches/librsvg-pixbufloader-svg.patch', 'patches/gdk-pixbuf-png-only.patch', format('triplets/{0}.cmake', matrix.triplet)) }}
+          key: ${{ runner.os }}-vcpkg-${{ matrix.triplet }}-${{ env.VCPKG_COMMIT }}-${{ hashFiles('build-vcpkg.ps1', 'patches/0002-vcpkg-glib-unc.patch', 'patches/librsvg-pixbufloader-svg.patch', 'patches/gdk-pixbuf-png-only.patch', format('triplets/{0}.cmake', matrix.triplet)) }}
           # The last one matches caches saved before the matrix. Archives are
           # named by ABI hash, so another triplet's archives are just unused.
           restore-keys: |
@@ -104,26 +104,7 @@ jobs:
 
       - name: vcpkg build
         shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          cd ./vcpkg
-          git apply --ignore-whitespace --whitespace=nowarn "$env:GITHUB_WORKSPACE/patches/0002-vcpkg-glib-unc.patch"
-          if ($LASTEXITCODE -ne 0) { throw "git apply 0002-vcpkg-glib-unc.patch failed" }
-          git apply --ignore-whitespace --whitespace=nowarn "$env:GITHUB_WORKSPACE/patches/gdk-pixbuf-png-only.patch"
-          if ($LASTEXITCODE -ne 0) { throw "git apply gdk-pixbuf-png-only.patch failed" }
-          Copy-Item "$env:GITHUB_WORKSPACE/patches/librsvg-pixbufloader-svg.patch" ./ports/librsvg/add-pixbufloader-svg.patch
-          (Get-Content ./ports/librsvg/portfile.cmake) -replace 'meson-pkgconfig-and-def-file\.patch', "meson-pkgconfig-and-def-file.patch`n        add-pixbufloader-svg.patch" | Set-Content ./ports/librsvg/portfile.cmake
-          ./bootstrap-vcpkg.bat
-          ./vcpkg format-manifest ports/gdk-pixbuf/vcpkg.json
-          if ($LASTEXITCODE -ne 0) { throw "vcpkg format-manifest gdk-pixbuf failed" }
-          git add ports/gdk-pixbuf
-          ./vcpkg x-add-version gdk-pixbuf
-          if ($LASTEXITCODE -ne 0) { throw "vcpkg x-add-version gdk-pixbuf failed" }
-          $cacheDir = Join-Path $env:LOCALAPPDATA 'vcpkg\archives'
-          New-Item -ItemType Directory -Force -Path $cacheDir | Out-Null
-          $binarySource = "clear;files,$cacheDir,readwrite"
-          ./vcpkg install python3 fontconfig[tools] gobject-introspection harfbuzz[introspection] pango[introspection] gdk-pixbuf[introspection] atk[introspection] libcroco librsvg gtk3[introspection] --triplet $env:VCPKG_TRIPLET --binarysource=$binarySource
-          if ($LASTEXITCODE -ne 0) { throw "vcpkg install failed" }
+        run: ./build-vcpkg.ps1 -Triplet $env:VCPKG_TRIPLET
 
       - name: Generate platform-specific typelibs
         shell: bash
