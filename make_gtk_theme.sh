@@ -1,10 +1,18 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # shellcheck enable=require-variable-braces
 
 set -euo pipefail
 
+# Minimal PATH
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+# Node and npm from setup-node on CI, the system ones otherwise
+PATH="${NODE_DIR:+${NODE_DIR}:}${PATH}"
+
+# Build gtk-themes.7z in the current directory. Run npm ci first for svgo.
+
 current_dir=$(pwd)
+repo_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 work_dir=$(mktemp -d --suffix=gtktheme)
 cd "${work_dir}"
 
@@ -88,7 +96,7 @@ cp "gnome-themes-extra-${GNOME_THEMES_VER}/themes/HighContrast/icons/index.theme
 # Both run in place. They are timed and the total size delta is printed so
 # the size/time tradeoff is visible in the build log.
 command -v oxipng >/dev/null 2>&1 || { echo "Error: oxipng not found; install it to optimize PNGs"; exit 1; }
-command -v svgo   >/dev/null 2>&1 || { echo "Error: svgo not found; install it to optimize SVGs"; exit 1; }
+command -v npm    >/dev/null 2>&1 || { echo "Error: npm not found; it runs svgo to optimize SVGs"; exit 1; }
 
 # Sum of byte sizes of all regular files under $1 matching name glob $2.
 total_bytes() {
@@ -123,8 +131,9 @@ print_savings "PNG (zopfli)" "${png_zopfli_before}" "${png_zopfli_after}"
 
 echo "==> Optimizing SVG files with svgo"
 svg_before=$(total_bytes gtk-themes '*.svg')
-time find gtk-themes -type f -name '*.svg' -print0 \
-    | xargs -r -0 svgo --multipass --quiet
+# npm hands the whole command to sh as one argument, capped at 128 KiB
+time find "${work_dir}/gtk-themes" -type f -name '*.svg' -print0 \
+    | xargs -r -0 -n 500 npm --prefix "${repo_dir}" run --silent svgo -- --multipass --quiet
 svg_after=$(total_bytes gtk-themes '*.svg')
 print_savings "SVG" "${svg_before}" "${svg_after}"
 

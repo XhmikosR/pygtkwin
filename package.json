@@ -1,6 +1,9 @@
 {
   "name": "pygtkwin",
   "private": true,
+  "scripts": {
+    "svgo": "svgo"
+  },
   "devDependencies": {
     "svgo": "^4.1.0"
   }
