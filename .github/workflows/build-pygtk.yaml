@@ -187,80 +187,16 @@ jobs:
         run: |
           sha256sum "$GTK_BUILD_NAME.7z"
           7z x -bso0 -bsp0 "$GTK_BUILD_NAME.7z"
-          if [ ! -f "$(cygpath -u "$PYTHON")" ]; then
-            echo "Error: Python executable not found at $PYTHON"
-            exit 1
-          fi
-
-      - name: Download and extract PyGObject source
-        shell: bash
-        run: |
-          curl -fL "https://download.gnome.org/sources/pygobject/3.58/pygobject-$PYGOBJECT_VERSION.tar.gz" -o pygobject.tar.gz
-          certutil -hashfile pygobject.tar.gz SHA256
-          echo "$PYGOBJECT_SHA256 pygobject.tar.gz" | sha256sum -c || exit 1
-          tar xf pygobject.tar.gz
-
-      - name: Install build dependencies
-        shell: cmd # zizmor: ignore[misfeature] this step's script is written in cmd/batch syntax
-        run: |
-          "%PYTHON%" -m ensurepip --upgrade
-          "%PYTHON%" -m pip install --upgrade pip
-          "%PYTHON%" -m pip install --no-deps -r requirements.txt
-          :: No pip check: the pkgconf Windows wheel's metadata claims linux_x86_64
-
-      - name: Copy python312.lib to python libs directory
-        shell: pwsh
-        run: |
-          echo Searching for required files
-          Get-ChildItem -Path "$env:VCPKG_DIR" -Include python312.lib -Recurse
-          Get-ChildItem -Path "$env:VCPKG_DIR" -Include Gtk-3.0.typelib -Recurse
-          echo Creating python libs directory
-          New-Item -Path "$env:PYTHON_DIR\libs" -ItemType Directory
-          echo Copying python312.lib to libs directory
-          Copy-Item -Path "$env:VCPKG_DIR\lib\python312.lib" -Destination "$env:PYTHON_DIR\libs\"
 
       - name: Build wheel
-        shell: cmd # zizmor: ignore[misfeature] this step's script is written in cmd/batch syntax
+        shell: pwsh
         env:
-          PKG_CONFIG: ${{ env.VCPKG_DIR }}\tools\python3\Lib\site-packages\pkgconf\.bin\pkgconf.exe
-          PKG_CONFIG_PATH: ${{ env.VCPKG_DIR }}\lib\pkgconfig
-          CC: cl
-          CXX: cl
           WHEEL_TAG: ${{ matrix.wheel }}
-        run: |
-          for /F "usebackq" %%i in (`%PKG_CONFIG% --cflags python-3.12`) do set CL=%%i
-          cd pygobject-%PYGOBJECT_VERSION%
-          "%PYTHON%" -m build --wheel --no-isolation
-          dir /b /s *.whl
-
-          echo PYGOBJECT_WHL=%GITHUB_WORKSPACE%\pygobject-%PYGOBJECT_VERSION%\dist\pygobject-%PYGOBJECT_VERSION%-cp312-cp312-%WHEEL_TAG%.whl>>%GITHUB_ENV%
+        run: ./build-pygobject.ps1 -WheelTag $env:WHEEL_TAG
 
       - name: Test wheel
-        shell: cmd # zizmor: ignore[misfeature] this step's script is written in cmd/batch syntax
-        run: |
-          if not exist "%PYGOBJECT_WHL%" (
-            echo Error: %PYGOBJECT_WHL% does not exist.
-            exit /b 1
-          )
-          "%PYTHON%" -m pip install --no-deps "%PYGOBJECT_WHL%"
-
-          robocopy /MIR /COPYALL %VCPKG_DIR%\lib\girepository-1.0 %PYTHON_DIR%\lib\girepository-1.0
-          set PATH=%PATH%;%VCPKG_DIR%\bin;%VCPKG_DIR%\lib
-          set GI_TYPELIB_PATH=%VCPKG_DIR%\lib\girepository-1.0
-          "%PYTHON%" show_versions.py --dll-directory=%VCPKG_DIR%\bin
-
-          set GI_WARNING_LOG=%TEMP%\pygobject-platform-gir-stderr.txt
-          "%PYTHON%" -c "import os; os.add_dll_directory(r'%VCPKG_DIR%\bin'); import gi; gi.require_version('Gtk', '3.0'); from gi.repository import Gio, GioWin32, GLibWin32, Gtk; assert hasattr(GLibWin32, 'get_command_line'); assert hasattr(GioWin32.InputStream, 'get_handle'); assert hasattr(GioWin32.OutputStream, 'get_handle')" 2>"%GI_WARNING_LOG%"
-          if errorlevel 1 (
-            type "%GI_WARNING_LOG%"
-            exit /b 1
-          )
-          type "%GI_WARNING_LOG%"
-          findstr /C:"Unable to load platform-specific GIO introspection data" /C:"Name conflict for platform-specific symbol" "%GI_WARNING_LOG%" >nul && (
-            echo Platform-specific typelib regression detected.
-            exit /b 1
-          )
-          exit /b 0
+        shell: pwsh
+        run: ./test-pygobject.ps1 -Wheel $env:PYGOBJECT_WHL
 
       - name: Upload wheel
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
