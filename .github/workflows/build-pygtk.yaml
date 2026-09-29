@@ -68,6 +68,17 @@ jobs:
           path: vcpkg
           persist-credentials: false
 
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+
+      - name: Install Python requirements
+        shell: bash
+        run: |
+          python -m pip install --no-deps -r requirements-vcpkg.txt
+          python -m pip check
+
       - name: Set up pygtkwin environment
         uses: $/actions/pygtkwin-env
         with:
@@ -111,8 +122,6 @@ jobs:
           $cacheDir = Join-Path $env:LOCALAPPDATA 'vcpkg\archives'
           New-Item -ItemType Directory -Force -Path $cacheDir | Out-Null
           $binarySource = "clear;files,$cacheDir,readwrite"
-          python -m ensurepip --upgrade
-          python -m pip install virtualenv
           ./vcpkg install python3 fontconfig[tools] gobject-introspection harfbuzz[introspection] pango[introspection] gdk-pixbuf[introspection] atk[introspection] libcroco librsvg gtk3[introspection] --triplet $env:VCPKG_TRIPLET --binarysource=$binarySource
           if ($LASTEXITCODE -ne 0) { throw "vcpkg install failed" }
 
