@@ -9,18 +9,19 @@ work_dir=$(mktemp -d --suffix=gtktheme)
 cd "${work_dir}"
 
 download_and_extract() {
-    local url="$1"
+    local url="$1" sha256="$2"
     local filename="${url##*/}"
 
-    wget -q "${url}" -O "${filename}" || { echo "Failed to download ${filename}"; exit 1; }
-    sha256sum "${filename}"
+    curl -fsSL "${url}" -o "${filename}" || { echo "Failed to download ${filename}"; exit 1; }
+    echo "${sha256}  ${filename}" | sha256sum -c -
     tar -xf "${filename}"
     rm -f -- "${filename}"
 }
 
 ADAWAITA_VERSION=50.0
+ADAWAITA_SHA256=fac6e0401fca714780561a081b8f7e27c3bc1db34ebda4da175081f26b24d460
 ADAWAITA_URL="https://download.gnome.org/sources/adwaita-icon-theme/50/adwaita-icon-theme-${ADAWAITA_VERSION}.tar.xz"
-download_and_extract "${ADAWAITA_URL}"
+download_and_extract "${ADAWAITA_URL}" "${ADAWAITA_SHA256}"
 mkdir -p gtk-themes/share/icons
 mv adwaita-icon-theme-${ADAWAITA_VERSION}/Adwaita gtk-themes/share/icons
 cp adwaita-icon-theme-${ADAWAITA_VERSION}/index.theme gtk-themes/share/icons/Adwaita/index.theme
@@ -28,21 +29,24 @@ cp adwaita-icon-theme-${ADAWAITA_VERSION}/index.theme gtk-themes/share/icons/Adw
 # Adwaita 47+ split legacy (fullcolor) icons into a separate package.
 # The main index.theme inherits AdwaitaLegacy, so both are required.
 ADAWAITA_LEGACY_VERSION=46.2
+ADAWAITA_LEGACY_SHA256=548480f58589a54b72d18833b755b15ffbd567e3187249d74e2e1f8f99f22fb4
 ADAWAITA_LEGACY_URL="https://download.gnome.org/sources/adwaita-icon-theme-legacy/46/adwaita-icon-theme-legacy-${ADAWAITA_LEGACY_VERSION}.tar.xz"
-download_and_extract "${ADAWAITA_LEGACY_URL}"
+download_and_extract "${ADAWAITA_LEGACY_URL}" "${ADAWAITA_LEGACY_SHA256}"
 mv adwaita-icon-theme-legacy-${ADAWAITA_LEGACY_VERSION}/AdwaitaLegacy gtk-themes/share/icons
 cp adwaita-icon-theme-legacy-${ADAWAITA_LEGACY_VERSION}/index.theme gtk-themes/share/icons/AdwaitaLegacy/index.theme
 
 # hicolor is the ultimate fallback icon theme.
 HICOLOR_VERSION=0.18
+HICOLOR_SHA256=db0e50a80aa3bf64bb45cbca5cf9f75efd9348cf2ac690b907435238c3cf81d7
 HICOLOR_URL="https://icon-theme.freedesktop.org/releases/hicolor-icon-theme-${HICOLOR_VERSION}.tar.xz"
-download_and_extract "${HICOLOR_URL}"
+download_and_extract "${HICOLOR_URL}" "${HICOLOR_SHA256}"
 mkdir -p gtk-themes/share/icons/hicolor
 cp hicolor-icon-theme-${HICOLOR_VERSION}/index.theme gtk-themes/share/icons/hicolor/index.theme
 
 GTK_VER=3.24.52
+GTK_SHA256=80931fa472a77b9a164f6740e3c0b444fac6770054632d35a7ff9d679e5e7b9f
 GTK_URL="https://download.gnome.org/sources/gtk/3.24/gtk-${GTK_VER}.tar.xz"
-download_and_extract "${GTK_URL}"
+download_and_extract "${GTK_URL}" "${GTK_SHA256}"
 cd "gtk-${GTK_VER}/gtk/theme/Adwaita" || { echo "Failed to cd into Adwaita"; exit 1; }
 ./parse-sass.sh
 if [ ! -f gtk-contained.css ]; then
@@ -71,8 +75,9 @@ CursorSize=24
 EOF
 
 GNOME_THEMES_VER=3.28
+GNOME_THEMES_SHA256=7c4ba0bff001f06d8983cfc105adaac42df1d1267a2591798a780bac557a5819
 GTKTHEMES_URL="https://download.gnome.org/sources/gnome-themes-extra/3.28/gnome-themes-extra-${GNOME_THEMES_VER}.tar.xz"
-download_and_extract "${GTKTHEMES_URL}"
+download_and_extract "${GTKTHEMES_URL}" "${GNOME_THEMES_SHA256}"
 mkdir -p gtk-themes/share/icons/HighContrast
 rm -f -- "gnome-themes-extra-${GNOME_THEMES_VER}/themes/HighContrast/icons/scalable/Makefile.am"
 mv "gnome-themes-extra-${GNOME_THEMES_VER}/themes/HighContrast/icons/scalable" "gtk-themes/share/icons/HighContrast"
