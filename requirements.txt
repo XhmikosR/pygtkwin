@@ -1,8 +1,10 @@
 build==1.2.2.post1
 colorama==0.4.6
-meson==1.7.0
+meson==1.12.1
+meson-python==0.22.0
 ninja==1.11.1.4
-packaging==24.2
-pyproject-metadata==0.9.1
+packaging==26.3
+pkgconf==3.0.7.post0
+pycairo==1.29.1
+pyproject-metadata==0.12.1
 pyproject_hooks==1.2.0
-pkgconf
