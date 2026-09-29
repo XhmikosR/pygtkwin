@@ -12,7 +12,7 @@ download_and_extract() {
     local url="$1" sha256="$2"
     local filename="${url##*/}"
 
-    wget -q "${url}" -O "${filename}" || { echo "Failed to download ${filename}"; exit 1; }
+    curl -fsSL "${url}" -o "${filename}" || { echo "Failed to download ${filename}"; exit 1; }
     echo "${sha256}  ${filename}" | sha256sum -c -
     tar -xf "${filename}"
     rm -f -- "${filename}"
