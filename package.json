@@ -2,6 +2,6 @@
   "name": "pygtkwin",
   "private": true,
   "devDependencies": {
-    "svgo": "^3.3.5"
+    "svgo": "^4.1.0"
   }
 }
