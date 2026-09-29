@@ -125,11 +125,13 @@ jobs:
         run: ./package-build.ps1 -Triplet $env:VCPKG_TRIPLET -Archive "$env:GTK_BUILD_NAME.7z" -Level $env:COMPRESSION_LEVEL
 
       - name: Test the build
-        shell: cmd # zizmor: ignore[misfeature] this step's script is written in cmd/batch syntax
+        shell: pwsh
+        # pip is not installed
         run: |
-          "%PYTHON%" -V
-          "%PYTHON%" show_versions.py
-          :: pip is not installed
+          # Otherwise only the last command's exit code fails the step
+          $PSNativeCommandUseErrorActionPreference = $true
+          & $env:PYTHON -V
+          & $env:PYTHON show_versions.py
 
       - name: Smoke test HTTPS (TLS 1.2/1.3)
         shell: pwsh
