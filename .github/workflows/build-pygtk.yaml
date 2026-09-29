@@ -45,9 +45,7 @@ jobs:
       matrix:
         include:
           - triplet: x86-windows
-            arch: x86
           - triplet: x64-windows
-            arch: x64
 
     env:
       VCPKG_COMMIT: '7ece2c79b95131924820fb67c977abb3c4602724'
@@ -82,8 +80,6 @@ jobs:
 
       - name: Set up pygtkwin environment
         uses: $/actions/pygtkwin-env
-        with:
-          arch: ${{ matrix.arch }}
 
       - name: Cache vcpkg binary cache
         # Skipped for tags: vcpkg trusts archives by their names, so a poisoned
@@ -158,10 +154,8 @@ jobs:
       matrix:
         include:
           - triplet: x86-windows
-            arch: x86
             wheel: win32
           - triplet: x64-windows
-            arch: x64
             wheel: win_amd64
 
     env:
@@ -177,8 +171,6 @@ jobs:
 
       - name: Set up pygtkwin environment
         uses: $/actions/pygtkwin-env
-        with:
-          arch: ${{ matrix.arch }}
 
       - name: Download PyGTK artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
