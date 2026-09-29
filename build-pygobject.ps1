@@ -1,7 +1,7 @@
 #Requires -Version 7.4
 # Build the PyGObject wheel against the extracted GTK build and export its
-# path as PYGOBJECT_WHL. Needs the pygtkwin-env variables, PYGOBJECT_VERSION,
-# PYGOBJECT_SHA256 and MSVC.
+# path as PYGOBJECT_WHL. Needs the pygtkwin-env variables, PYGOBJECT_VERSION
+# and PYGOBJECT_SHA256.
 # Usage: ./build-pygobject.ps1 -WheelTag win32
 
 param(
@@ -37,6 +37,12 @@ tar -xf $tarball
 $libs = Join-Path $env:PYTHON_DIR 'libs'
 New-Item -ItemType Directory -Force -Path $libs | Out-Null
 Copy-Item (Join-Path $env:VCPKG_DIR 'lib\python312.lib') $libs
+
+# meson needs cl, and only this step builds C code outside vcpkg
+$vsPath = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+$vsArch = if ($WheelTag -eq 'win_amd64') { 'amd64' } else { 'x86' }
+Import-Module (Join-Path $vsPath 'Common7\Tools\Microsoft.VisualStudio.DevShell.dll')
+Enter-VsDevShell -VsInstallPath $vsPath -SkipAutomaticLocation -DevCmdArguments "-arch=$vsArch -host_arch=amd64"
 
 $env:PKG_CONFIG = Join-Path $env:VCPKG_DIR 'tools\python3\Lib\site-packages\pkgconf\.bin\pkgconf.exe'
 $env:PKG_CONFIG_PATH = Join-Path $env:VCPKG_DIR 'lib\pkgconfig'
