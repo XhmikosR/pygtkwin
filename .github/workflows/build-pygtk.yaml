@@ -60,6 +60,14 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Checkout vcpkg
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: microsoft/vcpkg
+          ref: ${{ env.VCPKG_COMMIT }}
+          path: vcpkg
+          persist-credentials: false
+
       - name: Set up pygtkwin environment
         uses: $/actions/pygtkwin-env
         with:
@@ -87,9 +95,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          git clone https://github.com/microsoft/vcpkg.git ./vcpkg
           cd ./vcpkg
-          git checkout $env:VCPKG_COMMIT
           git apply --ignore-whitespace --whitespace=nowarn "$env:GITHUB_WORKSPACE/0002-vcpkg-glib-unc.patch"
           if ($LASTEXITCODE -ne 0) { throw "git apply 0002-vcpkg-glib-unc.patch failed" }
           git apply --ignore-whitespace --whitespace=nowarn "$env:GITHUB_WORKSPACE/gdk-pixbuf-png-only.patch"
