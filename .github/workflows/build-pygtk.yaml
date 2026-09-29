@@ -14,6 +14,7 @@ on:
       - '.github/workflows/zizmor.yml'
       - '.gitattributes'
       - '.gitignore'
+      - 'install-theme-tools.sh'
       - 'LICENSE'
       - 'make_gtk_theme.sh'
       - 'package-lock.json'
