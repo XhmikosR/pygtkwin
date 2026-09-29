@@ -123,6 +123,6 @@ time find gtk-themes -type f -name '*.svg' -print0 \
 svg_after=$(total_bytes gtk-themes '*.svg')
 print_savings "SVG" "${svg_before}" "${svg_after}"
 
-7za a -t7z -mmt=on "${current_dir}/gtk-themes.7z" gtk-themes
+7za a -t7z -mx=9 -mmt=on "${current_dir}/gtk-themes.7z" gtk-themes
 du -b "${current_dir}/gtk-themes.7z"
 sha256sum "${current_dir}/gtk-themes.7z"

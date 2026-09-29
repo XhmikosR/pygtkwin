@@ -133,7 +133,7 @@ jobs:
       - name: Package the build
         shell: bash
         run: |
-          7z a -bso0 -bsp0 -t7z -mmt=on "$GTK_BUILD_NAME.7z" vcpkg_installed
+          7z a -bso0 -bsp0 -t7z -mx=9 -mmt=on "$GTK_BUILD_NAME.7z" vcpkg_installed
           sha256sum "$GTK_BUILD_NAME.7z"
 
       - name: Test the build
