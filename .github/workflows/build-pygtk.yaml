@@ -116,24 +116,12 @@ jobs:
         run: |
           ./validate-build.sh "vcpkg/installed/$VCPKG_TRIPLET"
 
-      - name: Prepare for packing
-        shell: bash
-        run: |
-          cp -a vcpkg/installed vcpkg_installed
-          echo "Size before cleanup: $(du -sh vcpkg_installed)"
-          rm -rf "vcpkg_installed/$VCPKG_TRIPLET/debug" "vcpkg_installed/$VCPKG_TRIPLET"/bin/*.pdb
-          # Keep only the target triplet, not vcpkg's metadata or another tree
-          find vcpkg_installed -mindepth 1 -maxdepth 1 ! -name "$VCPKG_TRIPLET" -exec rm -rf {} +
-          echo "Size after cleanup: $(du -sh vcpkg_installed)"
-
       - name: Package the build
-        shell: bash
+        shell: pwsh
         env:
           # 5 is 7z's default; releases get the smallest archive
           COMPRESSION_LEVEL: ${{ github.ref_type == 'tag' && '9' || '5' }}
-        run: |
-          7z a -bso0 -bsp0 -t7z "-mx=$COMPRESSION_LEVEL" -mmt=on "$GTK_BUILD_NAME.7z" vcpkg_installed
-          sha256sum "$GTK_BUILD_NAME.7z"
+        run: ./package-build.ps1 -Triplet $env:VCPKG_TRIPLET -Archive "$env:GTK_BUILD_NAME.7z" -Level $env:COMPRESSION_LEVEL
 
       - name: Test the build
         shell: cmd # zizmor: ignore[misfeature] this step's script is written in cmd/batch syntax
