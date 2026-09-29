@@ -51,7 +51,21 @@ jobs:
         # Ignore scripts to avoid potential security issues.
         run: npm ci --ignore-scripts
 
+      - name: Cache optimized theme assets
+        # Skipped for tags so a poisoned cache can't reach a release. Optimizing
+        # from scratch takes about 2 minutes.
+        if: github.ref_type != 'tag'
+        # zizmor: ignore[cache-poisoning] releases optimize from scratch, see above
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/theme-assets
+          key: ${{ runner.os }}-theme-assets-${{ hashFiles('make_gtk_theme.sh', 'install-theme-tools.sh', 'package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-theme-assets-
+
       - name: Build GTK themes
+        env:
+          ASSET_CACHE_DIR: ${{ runner.temp }}/theme-assets
         # The script resets PATH, so pass it setup-node's bin dir
         run: NODE_DIR="$(dirname "$(command -v node)")" ./make_gtk_theme.sh
 
