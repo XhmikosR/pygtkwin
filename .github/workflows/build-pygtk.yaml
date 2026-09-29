@@ -216,7 +216,6 @@ jobs:
         shell: cmd # zizmor: ignore[misfeature] this step's script is written in cmd/batch syntax
         run: |
           "%PYTHON%" -m ensurepip --upgrade
-          "%PYTHON%" -m pip install --upgrade pip
           "%PYTHON%" -m pip install -r requirements.txt
 
       - name: Copy python312.lib to python libs directory
