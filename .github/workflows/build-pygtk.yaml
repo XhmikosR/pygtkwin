@@ -147,8 +147,11 @@ jobs:
 
       - name: Package the build
         shell: bash
+        env:
+          # 5 is 7z's default; releases get the smallest archive
+          COMPRESSION_LEVEL: ${{ github.ref_type == 'tag' && '9' || '5' }}
         run: |
-          7z a -bso0 -bsp0 -t7z -mx=9 -mmt=on "$GTK_BUILD_NAME.7z" vcpkg_installed
+          7z a -bso0 -bsp0 -t7z "-mx=$COMPRESSION_LEVEL" -mmt=on "$GTK_BUILD_NAME.7z" vcpkg_installed
           sha256sum "$GTK_BUILD_NAME.7z"
 
       - name: Test the build
