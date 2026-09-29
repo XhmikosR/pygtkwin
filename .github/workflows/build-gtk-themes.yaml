@@ -41,7 +41,7 @@ jobs:
           # 403 Forbidden on apt-get update, and none of these packages use it.
           sudo rm -f /etc/apt/sources.list.d/*microsoft*
           sudo apt-get update
-          sudo apt-get install -y sassc wget p7zip-full
+          sudo apt-get install -y --no-install-recommends sassc wget p7zip-full
 
       - name: Install oxipng
         run: |
