@@ -81,27 +81,38 @@ jobs:
       - name: Set up pygtkwin environment
         uses: $/actions/pygtkwin-env
 
-      - name: Cache vcpkg binary cache
+      - name: Prepare vcpkg
+        id: vcpkg-prepare
+        shell: pwsh
+        run: ./build-vcpkg.ps1 -Triplet $env:VCPKG_TRIPLET -Phase Prepare
+
+      - name: Restore vcpkg binary cache
+        id: vcpkg-cache
         # Skipped for tags: vcpkg trusts archives by their names, so a poisoned
         # cache could reach a release.
         if: github.ref_type != 'tag'
         # zizmor: ignore[cache-poisoning] releases build with a cold cache, see above
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.cache/vcpkg/archives
             C:\Users\runneradmin\AppData\Local\vcpkg\archives
-          key: ${{ runner.os }}-vcpkg-${{ matrix.triplet }}-${{ env.VCPKG_COMMIT }}-${{ hashFiles('build-vcpkg.ps1', 'patches/0002-vcpkg-glib-unc.patch', 'patches/librsvg-pixbufloader-svg.patch', 'patches/gdk-pixbuf-png-only.patch', format('triplets/{0}.cmake', matrix.triplet)) }}
-          # The last one matches caches saved before the matrix. Archives are
-          # named by ABI hash, so another triplet's archives are just unused.
-          restore-keys: |
-            ${{ runner.os }}-vcpkg-${{ matrix.triplet }}-${{ env.VCPKG_COMMIT }}-
-            ${{ runner.os }}-vcpkg-${{ matrix.triplet }}-
-            ${{ runner.os }}-vcpkg-${{ env.VCPKG_COMMIT }}-
+          key: ${{ runner.os }}-vcpkg-${{ matrix.triplet }}-${{ steps.vcpkg-prepare.outputs.abi-hash }}
+          # When the ABIs changed, start from the newest cache for this triplet
+          restore-keys: ${{ runner.os }}-vcpkg-${{ matrix.triplet }}-
 
       - name: vcpkg build
         shell: pwsh
-        run: ./build-vcpkg.ps1 -Triplet $env:VCPKG_TRIPLET
+        run: ./build-vcpkg.ps1 -Triplet $env:VCPKG_TRIPLET -Phase Install -PruneCache
+
+      - name: Save vcpkg binary cache
+        if: github.ref_type != 'tag' && steps.vcpkg-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cache/vcpkg/archives
+            C:\Users\runneradmin\AppData\Local\vcpkg\archives
+          key: ${{ steps.vcpkg-cache.outputs.cache-primary-key }}
 
       - name: Generate platform-specific typelibs
         shell: bash
