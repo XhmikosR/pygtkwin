@@ -9,6 +9,7 @@ on:
       - 'v*'
     paths: &paths
       - '.github/workflows/build-gtk-themes.yaml'
+      - 'install-theme-tools.sh'
       - 'make_gtk_theme.sh'
       - 'package.json'
       - 'package-lock.json'
@@ -42,19 +43,7 @@ jobs:
           package-manager-cache: false
 
       - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends sassc p7zip-full
-
-      - name: Install oxipng
-        run: |
-          OXIPNG_VER=10.2.1
-          OXIPNG_SHA256=46e3c4beb9aae57290ad809dd3374b07153579d3322a3778c53900633618b7c6
-          curl -fsSL "https://github.com/oxipng/oxipng/releases/download/v${OXIPNG_VER}/oxipng-${OXIPNG_VER}-x86_64-unknown-linux-gnu.tar.gz" -o oxipng.tar.gz
-          echo "${OXIPNG_SHA256}  oxipng.tar.gz" | sha256sum -c -
-          tar -xzf oxipng.tar.gz
-          sudo install -m 0755 "oxipng-${OXIPNG_VER}-x86_64-unknown-linux-gnu/oxipng" /usr/local/bin/oxipng
-          oxipng --version
+        run: ./install-theme-tools.sh
 
       - name: Install svgo
         # Ignore scripts to avoid potential security issues.
