@@ -10,6 +10,8 @@ on:
       - 'v*'
     paths: &paths
       - '.github/workflows/build-gtk-themes.yaml'
+      - 'create-release.sh'
+      - 'install-theme-tools.sh'
       - 'make_gtk_theme.sh'
       - 'package.json'
       - 'package-lock.json'
@@ -43,22 +45,7 @@ jobs:
           package-manager-cache: false
 
       - name: Install dependencies
-        run: |
-          # Remove the Microsoft package repo: it intermittently returns
-          # 403 Forbidden on apt-get update, and none of these packages use it.
-          sudo rm -f /etc/apt/sources.list.d/*microsoft*
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends sassc p7zip-full
-
-      - name: Install oxipng
-        run: |
-          OXIPNG_VER=10.2.1
-          OXIPNG_SHA256=46e3c4beb9aae57290ad809dd3374b07153579d3322a3778c53900633618b7c6
-          curl -fsSL "https://github.com/oxipng/oxipng/releases/download/v${OXIPNG_VER}/oxipng-${OXIPNG_VER}-x86_64-unknown-linux-gnu.tar.gz" -o oxipng.tar.gz
-          echo "${OXIPNG_SHA256}  oxipng.tar.gz" | sha256sum -c -
-          tar -xzf oxipng.tar.gz
-          sudo install -m 0755 "oxipng-${OXIPNG_VER}-x86_64-unknown-linux-gnu/oxipng" /usr/local/bin/oxipng
-          oxipng --version
+        run: ./install-theme-tools.sh
 
       - name: Install svgo
         # Ignore scripts to avoid potential security issues.
@@ -87,6 +74,10 @@ jobs:
       contents: write # create the release and upload its files
 
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
       - name: Download themes
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
@@ -97,10 +88,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           TAG: ${{ github.ref_name }}
-        # The PyGTK workflow may have created the release already
-        run: |
-          if gh release view "$TAG" > /dev/null 2>&1; then
-            gh release upload "$TAG" --clobber gtk-themes.7z
-          else
-            gh release create "$TAG" --verify-tag --generate-notes gtk-themes.7z
-          fi
+        run: ./create-release.sh "$TAG" gtk-themes.7z
