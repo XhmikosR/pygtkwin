@@ -42,11 +42,11 @@ jobs:
       - name: Install oxipng
         run: |
           OXIPNG_VER=10.2.1
-          OXIPNG_SHA256=1813750ef592c5350ca79c88f98b2c0876d05c826dc7156245256d4255c1ad17
-          curl -fsSL "https://github.com/oxipng/oxipng/releases/download/v${OXIPNG_VER}/oxipng-${OXIPNG_VER}-x86_64-unknown-linux-musl.tar.gz" -o oxipng.tar.gz
+          OXIPNG_SHA256=46e3c4beb9aae57290ad809dd3374b07153579d3322a3778c53900633618b7c6
+          curl -fsSL "https://github.com/oxipng/oxipng/releases/download/v${OXIPNG_VER}/oxipng-${OXIPNG_VER}-x86_64-unknown-linux-gnu.tar.gz" -o oxipng.tar.gz
           echo "${OXIPNG_SHA256}  oxipng.tar.gz" | sha256sum -c -
           tar -xzf oxipng.tar.gz
-          sudo install -m 0755 "oxipng-${OXIPNG_VER}-x86_64-unknown-linux-musl/oxipng" /usr/local/bin/oxipng
+          sudo install -m 0755 "oxipng-${OXIPNG_VER}-x86_64-unknown-linux-gnu/oxipng" /usr/local/bin/oxipng
           oxipng --version
 
       - name: Install svgo
