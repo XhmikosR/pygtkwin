@@ -232,7 +232,8 @@ jobs:
         run: |
           "%PYTHON%" -m ensurepip --upgrade
           "%PYTHON%" -m pip install --upgrade pip
-          "%PYTHON%" -m pip install -r requirements.txt
+          "%PYTHON%" -m pip install --no-deps -r requirements.txt
+          :: No pip check: the pkgconf Windows wheel's metadata claims linux_x86_64
 
       - name: Copy python312.lib to python libs directory
         shell: pwsh
@@ -256,7 +257,7 @@ jobs:
         run: |
           for /F "usebackq" %%i in (`%PKG_CONFIG% --cflags python-3.12`) do set CL=%%i
           cd pygobject-%PYGOBJECT_VERSION%
-          "%PYTHON%" -m build --wheel
+          "%PYTHON%" -m build --wheel --no-isolation
           dir /b /s *.whl
 
           echo PYGOBJECT_WHL=%GITHUB_WORKSPACE%\pygobject-%PYGOBJECT_VERSION%\dist\pygobject-%PYGOBJECT_VERSION%-cp312-cp312-%WHEEL_TAG%.whl>>%GITHUB_ENV%
@@ -268,7 +269,7 @@ jobs:
             echo Error: %PYGOBJECT_WHL% does not exist.
             exit /b 1
           )
-          "%PYTHON%" -m pip install "%PYGOBJECT_WHL%"
+          "%PYTHON%" -m pip install --no-deps "%PYGOBJECT_WHL%"
 
           robocopy /MIR /COPYALL %VCPKG_DIR%\lib\girepository-1.0 %PYTHON_DIR%\lib\girepository-1.0
           set PATH=%PATH%;%VCPKG_DIR%\bin;%VCPKG_DIR%\lib
