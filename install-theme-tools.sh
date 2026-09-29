@@ -17,7 +17,7 @@ OXIPNG_SHA256=46e3c4beb9aae57290ad809dd3374b07153579d3322a3778c53900633618b7c6
 # 403 Forbidden on apt-get update, and none of these packages use it.
 sudo rm -f /etc/apt/sources.list.d/*microsoft*
 sudo apt-get update
-sudo apt-get install -y --no-install-recommends sassc p7zip-full
+sudo apt-get install -y --no-install-recommends sassc
 
 tmp_dir=$(mktemp -d)
 trap 'rm -rf -- "${tmp_dir}"' EXIT
