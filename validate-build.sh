@@ -24,10 +24,18 @@ case "$(basename "$dir")" in
         ;;
 esac
 
+# Sets file_machine for $1. e_lfanew at 0x3c points at the "PE\0\0" signature
+# and the machine field follows it. One od per file, since forks are slow
+# under Git Bash.
 pe_machine() {
+    local -a b
     local off
-    off=$(od -An -tu4 -j60 -N4 "$1" | tr -d ' ')
-    od -An -tx2 -j$((off + 4)) -N2 "$1" | tr -d ' '
+    file_machine=0000
+    read -r -a b < <(od -An -v -tu1 -w1024 -N1024 "$1")
+    [ "${#b[@]}" -ge 64 ] || return 0
+    off=$(( b[60] | b[61] << 8 | b[62] << 16 | b[63] << 24 ))
+    [ "$(( off + 5 ))" -lt "${#b[@]}" ] || return 0
+    printf -v file_machine '%02x%02x' "${b[off + 5]}" "${b[off + 4]}"
 }
 
 check_glob() {
@@ -64,9 +72,9 @@ check_glob "gspawn-win$bits-helper-console.exe" 'gspawn console helper' 'tools/g
 for f in "$bindir"/*.dll "$dir"/tools/*/*.dll "$dir"/tools/*/*.exe \
          "$dir"/tools/python3/DLLs/*.pyd; do
     [ -f "$f" ] || continue
-    m=$(pe_machine "$f")
-    if [ "$m" != "$machine" ]; then
-        echo "FAIL: ${f#$dir/} has PE machine $m, expected $machine"
+    pe_machine "$f"
+    if [ "$file_machine" != "$machine" ]; then
+        echo "FAIL: ${f#$dir/} has PE machine $file_machine, expected $machine"
         errors=$((errors + 1))
     fi
 done
