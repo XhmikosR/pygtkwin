@@ -4,7 +4,9 @@
 
 param(
     [Parameter(Mandatory)]
-    [string]$Triplet
+    [string]$Triplet,
+    # Drop archives this build didn't use and output the ABI hash for the CI cache key
+    [switch]$PruneCache
 )
 
 $ErrorActionPreference = 'Stop'
@@ -41,6 +43,20 @@ try {
     $cacheDir = Join-Path $env:LOCALAPPDATA 'vcpkg\archives'
     New-Item -ItemType Directory -Force -Path $cacheDir | Out-Null
     ./vcpkg install @ports --triplet $Triplet "--binarysource=clear;files,$cacheDir,readwrite"
+
+    if ($PruneCache) {
+        # Archives are stored as <cacheDir>/<ab>/<abi>.zip
+        $abis = Select-String -LiteralPath ./installed/vcpkg/status -Pattern '^Abi: (\w+)' |
+            ForEach-Object { $_.Matches[0].Groups[1].Value } | Sort-Object
+        $stale = Get-ChildItem $cacheDir -Recurse -Filter *.zip | Where-Object BaseName -notin $abis
+        $stale | Remove-Item
+        Write-Host "Removed $(@($stale).Count) stale archives, $($abis.Count) packages installed"
+
+        $hash = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($abis -join "`n"))).ToLower()
+        if ($env:GITHUB_OUTPUT) {
+            Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value "abi-hash=$hash"
+        }
+    }
 }
 finally {
     Pop-Location
