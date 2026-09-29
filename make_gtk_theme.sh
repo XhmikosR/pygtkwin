@@ -10,9 +10,14 @@ export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 PATH="${NODE_DIR:+${NODE_DIR}:}${PATH}"
 
 # Build gtk-themes.7z in the current directory. Run npm ci first for svgo.
+# ASSET_CACHE_DIR, if set, keeps the optimized PNGs and SVGs between runs.
 
 current_dir=$(pwd)
 repo_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+cache_root=""
+if [ -n "${ASSET_CACHE_DIR:-}" ]; then
+    cache_root=$(realpath -m -- "${ASSET_CACHE_DIR}")
+fi
 work_dir=$(mktemp -d --suffix=gtktheme)
 cd "${work_dir}"
 
@@ -98,9 +103,20 @@ cp "gnome-themes-extra-${GNOME_THEMES_VER}/themes/HighContrast/icons/index.theme
 command -v oxipng >/dev/null 2>&1 || { echo "Error: oxipng not found; install it to optimize PNGs"; exit 1; }
 command -v npm    >/dev/null 2>&1 || { echo "Error: npm not found; it runs svgo to optimize SVGs"; exit 1; }
 
+oxipng_args=(--opt max --alpha --fix -s --preserve)
+# The Zopfli option is much slower but further shrinks the images
+oxipng_zopfli_args=(--opt max --alpha --fix --preserve -z --fast)
+svgo_args=(--multipass --quiet)
+svgo=(npm --prefix "${repo_dir}" run --silent svgo --)
+
 # Sum of byte sizes of all regular files under $1 matching name glob $2.
 total_bytes() {
     find "$1" -type f -name "$2" -printf '%s\n' | awk '{s+=$1} END {print s+0}'
+}
+
+# Sum of byte sizes of the files in the NUL-separated list $1
+list_bytes() {
+    xargs -0 -r stat -c '%s' < "$1" | awk '{s+=$1} END {print s+0}'
 }
 
 # Print "label: before -> after bytes (saved, pct%)".
@@ -115,27 +131,101 @@ print_savings() {
     echo "${label}: ${before} -> ${after} bytes (${saved} saved, ${pct}%)"
 }
 
-# Without Zopfli option, oxipng runs quickly.
-echo "==> Optimizing PNG files with oxipng"
-png_before=$(total_bytes gtk-themes '*.png')
-time oxipng --opt max --alpha --fix -s --preserve -r gtk-themes
-png_after=$(total_bytes gtk-themes '*.png')
-print_savings "PNG" "${png_before}" "${png_after}"
+# Both take a NUL-separated file list
+optimize_pngs() {
+    local list="$1" before after
 
-# The oxipng Zopfli option is much slower but further shrinks the images.
-echo "==> Re-compressing PNGs with oxipng Zopfli (-z --fast)"
-png_zopfli_before=$(total_bytes gtk-themes '*.png')
-time oxipng --opt max --alpha --fix --preserve -z --fast -r gtk-themes
-png_zopfli_after=$(total_bytes gtk-themes '*.png')
-print_savings "PNG (zopfli)" "${png_zopfli_before}" "${png_zopfli_after}"
+    # Without Zopfli option, oxipng runs quickly.
+    echo "==> Optimizing PNG files with oxipng"
+    before=$(list_bytes "${list}")
+    time xargs -0 -r oxipng "${oxipng_args[@]}" < "${list}"
+    after=$(list_bytes "${list}")
+    print_savings "PNG" "${before}" "${after}"
 
-echo "==> Optimizing SVG files with svgo"
-svg_before=$(total_bytes gtk-themes '*.svg')
-# npm hands the whole command to sh as one argument, capped at 128 KiB
-time find "${work_dir}/gtk-themes" -type f -name '*.svg' -print0 \
-    | xargs -r -0 -n 500 npm --prefix "${repo_dir}" run --silent svgo -- --multipass --quiet
-svg_after=$(total_bytes gtk-themes '*.svg')
-print_savings "SVG" "${svg_before}" "${svg_after}"
+    echo "==> Re-compressing PNGs with oxipng Zopfli (-z --fast)"
+    before="${after}"
+    time xargs -0 -r oxipng "${oxipng_zopfli_args[@]}" < "${list}"
+    after=$(list_bytes "${list}")
+    print_savings "PNG (zopfli)" "${before}" "${after}"
+}
+
+optimize_svgs() {
+    local list="$1" before after
+
+    echo "==> Optimizing SVG files with svgo"
+    before=$(list_bytes "${list}")
+    # npm hands the whole command to sh as one argument, capped at 128 KiB
+    time xargs -0 -r -n 500 "${svgo[@]}" "${svgo_args[@]}" < "${list}"
+    after=$(list_bytes "${list}")
+    print_savings "SVG" "${before}" "${after}"
+}
+
+# Neither oxipng nor svgo can skip already optimized files, so results are
+# cached by input hash. Only the entries this run uses move over from the
+# previous cache, which drops stale ones.
+if [ -n "${cache_root}" ]; then
+    rm -rf -- "${cache_root}.old"
+    if [ -d "${cache_root}" ]; then
+        mv -- "${cache_root}" "${cache_root}.old"
+    fi
+    mkdir -p -- "${cache_root}"
+fi
+
+# optimize_cached <label> <name glob> <cache key> <optimize function>
+# The key holds the tool version and flags, so output from other settings is
+# never reused.
+optimize_cached() {
+    local label="$1" pattern="$2" key="$3" optimize="$4"
+    local list="${work_dir}/${label}.list" map="${work_dir}/${label}.map"
+    local ns="" old="" hash file hits=0 misses=0 before after
+    : > "${list}"
+    : > "${map}"
+
+    if [ -n "${cache_root}" ]; then
+        ns="${label}-$(printf '%s' "${key}" | sha256sum | cut -c1-16)"
+        old="${cache_root}.old/${ns}"
+        ns="${cache_root}/${ns}"
+        mkdir -p -- "${ns}"
+    fi
+
+    before=$(total_bytes gtk-themes "${pattern}")
+    while read -r hash file; do
+        if [ -n "${ns}" ] && [ -f "${ns}/${hash}" ]; then
+            cp -p -- "${ns}/${hash}" "${file}"
+            hits=$((hits + 1))
+        elif [ -n "${ns}" ] && [ -f "${old}/${hash}" ]; then
+            mv -- "${old}/${hash}" "${ns}/${hash}"
+            cp -p -- "${ns}/${hash}" "${file}"
+            hits=$((hits + 1))
+        else
+            printf '%s\0' "${file}" >> "${list}"
+            printf '%s %s\n' "${hash}" "${file}" >> "${map}"
+            misses=$((misses + 1))
+        fi
+    done < <(find "${work_dir}/gtk-themes" -type f -name "${pattern}" -print0 | xargs -0 -r sha256sum)
+    echo "==> ${label}: ${hits} cached, ${misses} to optimize"
+
+    if [ "${misses}" -gt 0 ]; then
+        "${optimize}" "${list}"
+    fi
+
+    if [ -n "${ns}" ]; then
+        while read -r hash file; do
+            cp -p -- "${file}" "${ns}/${hash}"
+        done < "${map}"
+    fi
+    after=$(total_bytes gtk-themes "${pattern}")
+    print_savings "${label} total" "${before}" "${after}"
+}
+
+optimize_cached PNG '*.png' \
+    "$(oxipng --version) ${oxipng_args[*]} ${oxipng_zopfli_args[*]}" optimize_pngs
+optimize_cached SVG '*.svg' \
+    "$("${svgo[@]}" --version) ${svgo_args[*]}" optimize_svgs
+
+if [ -n "${cache_root}" ]; then
+    rm -rf -- "${cache_root}.old"
+fi
 
 7za a -t7z -mx=9 -mmt=on "${current_dir}/gtk-themes.7z" gtk-themes
 du -b "${current_dir}/gtk-themes.7z"
