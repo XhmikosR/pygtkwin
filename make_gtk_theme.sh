@@ -173,8 +173,8 @@ optimize_svgs() {
 }
 
 # Neither oxipng nor svgo can skip already optimized files, so results are
-# cached by input hash. Only the entries this run uses move over from the
-# previous cache, which drops stale ones.
+# cached. Each run writes a new cache from its own files, which drops stale
+# entries.
 if [[ -n "${cache_root}" ]]; then
     rm -rf -- "${cache_root}.old"
     if [[ -d "${cache_root}" ]]; then
@@ -184,47 +184,56 @@ if [[ -n "${cache_root}" ]]; then
 fi
 
 # optimize_cached <label> <name glob> <cache key> <optimize function>
-# The key holds the tool version and flags, so output from other settings is
-# never reused.
+# The cache mirrors gtk-themes and keeps the input hashes in an index. A file
+# is reused when both its path and input hash match, so restoring and saving
+# take one cp each instead of one per file. The key holds the tool version and
+# flags, so output from other settings is never reused.
 optimize_cached() {
     local label="$1" pattern="$2" key="$3" optimize="$4"
-    local list="${work_dir}/${label}.list" map="${work_dir}/${label}.map"
-    local ns="" old="" hash file hits=0 misses=0 before after
-    : > "${list}"
-    : > "${map}"
+    local sums="${work_dir}/${label}.sums" hits="${work_dir}/${label}.hits"
+    local misses="${work_dir}/${label}.misses" list="${work_dir}/${label}.list"
+    local ns="" old="" index=/dev/null before after
 
     if [[ -n "${cache_root}" ]]; then
         ns="${label}-$(printf '%s' "${key}" | sha256sum | cut -c1-16)"
         old="${cache_root}.old/${ns}"
         ns="${cache_root}/${ns}"
-        mkdir -p -- "${ns}"
+        if [[ -f "${old}/index" ]]; then
+            index="${old}/index"
+        fi
     fi
 
     before=$(total_bytes gtk-themes "${pattern}")
-    while read -r hash file; do
-        if [[ -n "${ns}" && -f "${ns}/${hash}" ]]; then
-            cp -p -- "${ns}/${hash}" "${file}"
-            hits=$((hits + 1))
-        elif [[ -n "${ns}" && -f "${old}/${hash}" ]]; then
-            mv -- "${old}/${hash}" "${ns}/${hash}"
-            cp -p -- "${ns}/${hash}" "${file}"
-            hits=$((hits + 1))
+    # Lines are "<hash>  <path>", so the path starts at column 67
+    find gtk-themes -type f -name "${pattern}" -print0 | xargs -0 -r sha256sum |
+        LC_ALL=C sort > "${sums}"
+    : > "${hits}"
+    LC_ALL=C comm -23 "${sums}" "${index}" | cut -c67- > "${misses}"
+    # An entry missing from the cache is optimized again instead of failing
+    while IFS= read -r path; do
+        if [[ -f "${old}/${path}" ]]; then
+            printf '%s\n' "${path}" >> "${hits}"
         else
-            printf '%s\0' "${file}" >> "${list}"
-            printf '%s %s\n' "${hash}" "${file}" >> "${map}"
-            misses=$((misses + 1))
+            printf '%s\n' "${path}" >> "${misses}"
         fi
-    done < <(find "${work_dir}/gtk-themes" -type f -name "${pattern}" -print0 | xargs -0 -r sha256sum)
-    echo "==> ${label}: ${hits} cached, ${misses} to optimize"
+    done < <(LC_ALL=C comm -12 "${sums}" "${index}" | cut -c67-)
+    echo "==> ${label}: $(wc -l < "${hits}") cached, $(wc -l < "${misses}") to optimize"
 
-    if [[ "${misses}" -gt 0 ]]; then
+    if [[ -s "${hits}" ]]; then
+        (cd "${old}" && xargs -d '\n' cp -p --parents -t "${work_dir}" -- < "${hits}")
+    fi
+    if [[ -s "${misses}" ]]; then
+        # Absolute paths, since npm runs svgo from the repo dir
+        while IFS= read -r path; do
+            printf '%s/%s\0' "${work_dir}" "${path}"
+        done < "${misses}" > "${list}"
         "${optimize}" "${list}"
     fi
 
     if [[ -n "${ns}" ]]; then
-        while read -r hash file; do
-            cp -p -- "${file}" "${ns}/${hash}"
-        done < "${map}"
+        mkdir -p -- "${ns}"
+        cut -c67- "${sums}" | xargs -d '\n' -r cp -p --parents -t "${ns}" --
+        cp -- "${sums}" "${ns}/index"
     fi
     after=$(total_bytes gtk-themes "${pattern}")
     print_savings "${label} total" "${before}" "${after}"
