@@ -44,7 +44,7 @@ try {
         Copy-Item (Join-Path $patches 'librsvg-pixbufloader-svg.patch') ./ports/librsvg/add-pixbufloader-svg.patch
         (Get-Content ./ports/librsvg/portfile.cmake) -replace 'meson-pkgconfig-and-def-file\.patch', "meson-pkgconfig-and-def-file.patch`n        add-pixbufloader-svg.patch" | Set-Content ./ports/librsvg/portfile.cmake
 
-        ./bootstrap-vcpkg.bat
+        ./bootstrap-vcpkg.bat -disableMetrics
         ./vcpkg format-manifest ports/gdk-pixbuf/vcpkg.json
         git add ports/gdk-pixbuf
         ./vcpkg x-add-version gdk-pixbuf
