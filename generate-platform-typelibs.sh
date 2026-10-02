@@ -22,23 +22,23 @@ set -euo pipefail
 dir="${1:?usage: $0 <triplet_dir>}"
 script_dir="$(cd "$(dirname "$0")" && pwd)"
 
-gir_dir="$dir/share/gir-1.0"
-typelib_dir="$dir/lib/girepository-1.0"
-gi_tools_dir="$dir/tools/gobject-introspection"
-g_ir_compiler="$gi_tools_dir/g-ir-compiler.exe"
+gir_dir="${dir}/share/gir-1.0"
+typelib_dir="${dir}/lib/girepository-1.0"
+gi_tools_dir="${dir}/tools/gobject-introspection"
+g_ir_compiler="${gi_tools_dir}/g-ir-compiler.exe"
 
-if [ ! -f "$g_ir_compiler" ]; then
-    echo "ERROR: g-ir-compiler not found at $g_ir_compiler" >&2
+if [[ ! -f "${g_ir_compiler}" ]]; then
+    echo "ERROR: g-ir-compiler not found at ${g_ir_compiler}" >&2
     exit 1
 fi
 
-if [ ! -d "$gir_dir" ]; then
-    echo "ERROR: GIR directory not found: $gir_dir" >&2
+if [[ ! -d "${gir_dir}" ]]; then
+    echo "ERROR: GIR directory not found: ${gir_dir}" >&2
     exit 1
 fi
 
-if [ ! -d "$typelib_dir" ]; then
-    echo "ERROR: typelib directory not found: $typelib_dir" >&2
+if [[ ! -d "${typelib_dir}" ]]; then
+    echo "ERROR: typelib directory not found: ${typelib_dir}" >&2
     exit 1
 fi
 
@@ -56,11 +56,14 @@ echo "=== Generating platform-specific typelibs ==="
 # from the triplet dir we were handed avoids that mismatch.
 python_bin=""
 for candidate in \
-    "$dir/tools/python3/python.exe" \
-    "$dir/tools/python3/bin/python3" \
+    "${dir}/tools/python3/python.exe" \
+    "${dir}/tools/python3/bin/python3" \
     "$(command -v python3 || true)" \
     "$(command -v python || true)"; do
-    [ -n "$candidate" ] && [ -f "$candidate" ] && { python_bin="$candidate"; break; }
+    if [[ -n "${candidate}" && -f "${candidate}" ]]; then
+        python_bin="${candidate}"
+        break
+    fi
 done
 
 # PYTHON env var fallback (e.g. local Windows builds where python isn't on
@@ -68,43 +71,43 @@ done
 # backslashes, which bash cannot execute directly; convert it to a Unix
 # path via cygpath (Git Bash / MSYS only).  On Linux/macOS PYTHON is already
 # a Unix path and cygpath is absent, so it is used as-is.
-if [ -z "$python_bin" ] && [ -n "${PYTHON:-}" ]; then
-    if command -v cygpath >/dev/null 2>&1; then
-        python_bin="$(cygpath -u "$PYTHON")"
+if [[ -z "${python_bin}" && -n "${PYTHON:-}" ]]; then
+    if command -v cygpath > /dev/null 2>&1; then
+        python_bin="$(cygpath -u "${PYTHON}")"
     else
-        python_bin="$PYTHON"
+        python_bin="${PYTHON}"
     fi
 fi
 
-if [ -z "$python_bin" ] || [ ! -f "$python_bin" ]; then
+if [[ -z "${python_bin}" || ! -f "${python_bin}" ]]; then
     echo "ERROR: python not found (pass a triplet dir containing tools/python3, set PYTHON env var, or put python3 on PATH)" >&2
     exit 1
 fi
 
 # 1. Install the platform GIRs before compiling their typelibs.
-cp "$script_dir/gir/GLibWin32-2.0.gir" "$script_dir/gir/GioWin32-2.0.gir" "$gir_dir/"
+cp "${script_dir}/gir/GLibWin32-2.0.gir" "${script_dir}/gir/GioWin32-2.0.gir" "${gir_dir}/"
 
 # 2. Remove only symbols provided by the matching platform GIR, then
 #    recompile the base typelibs from the filtered metadata.
 for namespace in GLib Gio; do
-    "$python_bin" "$script_dir/gir/filter_glib_gir.py" \
-        "$gir_dir/$namespace-2.0.gir" "$gir_dir/${namespace}Win32-2.0.gir" \
-        "$gir_dir/$namespace-2.0.gir.filtered"
-    mv "$gir_dir/$namespace-2.0.gir.filtered" "$gir_dir/$namespace-2.0.gir"
-    "$g_ir_compiler" \
-        --includedir="$gir_dir" \
-        --output="$typelib_dir/$namespace-2.0.typelib" \
-        "$gir_dir/$namespace-2.0.gir"
-    echo "OK: Recompiled $namespace-2.0.typelib (platform duplicates removed)"
+    "${python_bin}" "${script_dir}/gir/filter_glib_gir.py" \
+        "${gir_dir}/${namespace}-2.0.gir" "${gir_dir}/${namespace}Win32-2.0.gir" \
+        "${gir_dir}/${namespace}-2.0.gir.filtered"
+    mv "${gir_dir}/${namespace}-2.0.gir.filtered" "${gir_dir}/${namespace}-2.0.gir"
+    "${g_ir_compiler}" \
+        --includedir="${gir_dir}" \
+        --output="${typelib_dir}/${namespace}-2.0.typelib" \
+        "${gir_dir}/${namespace}-2.0.gir"
+    echo "OK: Recompiled ${namespace}-2.0.typelib (platform duplicates removed)"
 done
 
 # 3. Compile the generated-platform API typelibs.
 for namespace in GLibWin32 GioWin32; do
-    "$g_ir_compiler" \
-        --includedir="$gir_dir" \
-        --output="$typelib_dir/$namespace-2.0.typelib" \
-        "$gir_dir/$namespace-2.0.gir"
-    echo "OK: Installed $namespace-2.0.typelib + $namespace-2.0.gir"
+    "${g_ir_compiler}" \
+        --includedir="${gir_dir}" \
+        --output="${typelib_dir}/${namespace}-2.0.typelib" \
+        "${gir_dir}/${namespace}-2.0.gir"
+    echo "OK: Installed ${namespace}-2.0.typelib + ${namespace}-2.0.gir"
 done
 
 echo "=== Platform-specific typelibs generated successfully ==="

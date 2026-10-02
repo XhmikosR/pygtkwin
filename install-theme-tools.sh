@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
 
-# shellcheck enable=require-variable-braces
-
 set -euo pipefail
 
 # Minimal PATH

@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
 
-# shellcheck enable=require-variable-braces
-
 set -euo pipefail
 
 # Minimal PATH
@@ -15,7 +13,10 @@ export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 usage="usage: $0 <tag> <file>..."
 tag="${1:?${usage}}"
 shift
-[ "$#" -gt 0 ] || { echo "${usage}" >&2; exit 1; }
+if [[ "$#" -eq 0 ]]; then
+    echo "${usage}" >&2
+    exit 1
+fi
 
 if ! gh release view "${tag}" > /dev/null 2>&1; then
     # The other workflow can still create it first, then upload below
