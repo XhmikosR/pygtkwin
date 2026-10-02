@@ -21,7 +21,7 @@ tmp_dir=$(mktemp -d)
 trap 'rm -rf -- "${tmp_dir}"' EXIT
 
 oxipng_name="oxipng-${OXIPNG_VERSION}-x86_64-unknown-linux-gnu"
-curl -fsSL "https://github.com/oxipng/oxipng/releases/download/v${OXIPNG_VERSION}/${oxipng_name}.tar.gz" -o "${tmp_dir}/oxipng.tar.gz"
+curl -fsSL --retry 3 "https://github.com/oxipng/oxipng/releases/download/v${OXIPNG_VERSION}/${oxipng_name}.tar.gz" -o "${tmp_dir}/oxipng.tar.gz"
 echo "${OXIPNG_SHA256}  ${tmp_dir}/oxipng.tar.gz" | sha256sum -c -
 tar -xzf "${tmp_dir}/oxipng.tar.gz" -C "${tmp_dir}"
 sudo install -m 0755 "${tmp_dir}/${oxipng_name}/oxipng" /usr/local/bin/oxipng

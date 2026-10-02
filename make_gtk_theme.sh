@@ -33,6 +33,13 @@ GNOME_THEMES_VERSION=3.28
 GNOME_THEMES_SHA256=7c4ba0bff001f06d8983cfc105adaac42df1d1267a2591798a780bac557a5819
 GNOME_THEMES_URL="https://download.gnome.org/sources/gnome-themes-extra/3.28/gnome-themes-extra-${GNOME_THEMES_VERSION}.tar.xz"
 
+for tool in sassc oxipng npm 7z; do
+    if ! command -v "${tool}" > /dev/null 2>&1; then
+        echo "Error: ${tool} not found" >&2
+        exit 1
+    fi
+done
+
 current_dir=$(pwd)
 repo_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 cache_root=""
@@ -40,14 +47,15 @@ if [[ -n "${ASSET_CACHE_DIR:-}" ]]; then
     cache_root=$(realpath -m -- "${ASSET_CACHE_DIR}")
 fi
 work_dir=$(mktemp -d --suffix=gtktheme)
+trap 'rm -rf -- "${work_dir}"' EXIT
 cd "${work_dir}"
 
 download_and_extract() {
     local url="$1" sha256="$2"
     local filename="${url##*/}"
 
-    if ! curl -fsSL "${url}" -o "${filename}"; then
-        echo "Failed to download ${filename}"
+    if ! curl -fsSL --retry 3 "${url}" -o "${filename}"; then
+        echo "Failed to download ${filename}" >&2
         exit 1
     fi
 
@@ -58,22 +66,22 @@ download_and_extract() {
 
 download_and_extract "${ADWAITA_URL}" "${ADWAITA_SHA256}"
 mkdir -p gtk-themes/share/icons
-mv adwaita-icon-theme-${ADWAITA_VERSION}/Adwaita gtk-themes/share/icons
-cp adwaita-icon-theme-${ADWAITA_VERSION}/index.theme gtk-themes/share/icons/Adwaita/index.theme
+mv "adwaita-icon-theme-${ADWAITA_VERSION}/Adwaita" "gtk-themes/share/icons"
+cp "adwaita-icon-theme-${ADWAITA_VERSION}/index.theme" "gtk-themes/share/icons/Adwaita/index.theme"
 
 download_and_extract "${ADWAITA_LEGACY_URL}" "${ADWAITA_LEGACY_SHA256}"
-mv adwaita-icon-theme-legacy-${ADWAITA_LEGACY_VERSION}/AdwaitaLegacy gtk-themes/share/icons
-cp adwaita-icon-theme-legacy-${ADWAITA_LEGACY_VERSION}/index.theme gtk-themes/share/icons/AdwaitaLegacy/index.theme
+mv "adwaita-icon-theme-legacy-${ADWAITA_LEGACY_VERSION}/AdwaitaLegacy" "gtk-themes/share/icons"
+cp "adwaita-icon-theme-legacy-${ADWAITA_LEGACY_VERSION}/index.theme" "gtk-themes/share/icons/AdwaitaLegacy/index.theme"
 
 download_and_extract "${HICOLOR_URL}" "${HICOLOR_SHA256}"
 mkdir -p gtk-themes/share/icons/hicolor
-cp hicolor-icon-theme-${HICOLOR_VERSION}/index.theme gtk-themes/share/icons/hicolor/index.theme
+cp "hicolor-icon-theme-${HICOLOR_VERSION}/index.theme" "gtk-themes/share/icons/hicolor/index.theme"
 
 download_and_extract "${GTK_URL}" "${GTK_SHA256}"
 cd "gtk-${GTK_VERSION}/gtk/theme/Adwaita"
 ./parse-sass.sh
 if [[ ! -f gtk-contained.css ]]; then
-    echo "Error: gtk-contained.css not found"
+    echo "Error: gtk-contained.css not found" >&2
     exit 1
 fi
 
@@ -107,15 +115,6 @@ cp "gnome-themes-extra-${GNOME_THEMES_VERSION}/themes/HighContrast/icons/index.t
 # oxipng losslessly recompresses PNGs; svgo strips redundancy from SVGs.
 # Both run in place. They are timed and the total size delta is printed so
 # the size/time tradeoff is visible in the build log.
-if ! command -v oxipng > /dev/null 2>&1; then
-    echo "Error: oxipng not found; install it to optimize PNGs"
-    exit 1
-fi
-if ! command -v npm > /dev/null 2>&1; then
-    echo "Error: npm not found; it runs svgo to optimize SVGs"
-    exit 1
-fi
-
 oxipng_args=(--opt max --alpha --fix -s --preserve)
 # The Zopfli option is much slower but further shrinks the images
 oxipng_zopfli_args=(--opt max --alpha --fix --preserve -z --fast)
@@ -135,7 +134,7 @@ list_bytes() {
 # Print "label: before -> after bytes (saved, pct%)".
 print_savings() {
     local label="$1" before="$2" after="$3" saved pct
-    saved=$(("${before}" - "${after}"))
+    saved=$((before - after))
     if [[ "${before}" -gt 0 ]]; then
         pct=$(awk -v s="${saved}" -v b="${before}" 'BEGIN{printf "%.2f", s*100/b}')
     else
@@ -240,6 +239,8 @@ if [[ -n "${cache_root}" ]]; then
     rm -rf -- "${cache_root}.old"
 fi
 
+# 7z a would add to an archive left over from an earlier run
+rm -f -- "${current_dir}/gtk-themes.7z"
 7z a -t7z -m0=LZMA2 -mx=9 -mmt=on "${current_dir}/gtk-themes.7z" gtk-themes
 du -b "${current_dir}/gtk-themes.7z"
 sha256sum "${current_dir}/gtk-themes.7z"

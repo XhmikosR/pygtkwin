@@ -33,7 +33,7 @@ check_glob() {
     local pattern="$1" label="$2" subdir="$3"
     local searchdir="${dir}/${subdir}"
     local found
-    found=$(find "${searchdir}" -name "${pattern}" -type f 2> /dev/null || true)
+    found=$(find "${searchdir}" -name "${pattern}" -type f -print -quit 2> /dev/null || true)
     if [[ -z "${found}" ]]; then
         echo "FAIL: ${label} not found (pattern: ${pattern} in ${searchdir})"
         errors=$((errors + 1))
@@ -97,7 +97,7 @@ print_metric 'gtk3_dll' "${gtk_dll#"${dir}"/}" "${gtk_dll}"
 ssl_dll=$(find "${bindir}" -maxdepth 1 -name 'libssl-3*.dll' -type f | head -n1)
 print_metric 'openssl_dll' "${ssl_dll#"${dir}"/}" "${ssl_dll}"
 # Secondary DLLs affected by the debloat configuration.
-for name in 'librsvg-2-*.dll' 'libcroco-*.dll' 'gdk_pixbuf-*.dll' 'libgtk-3-*.dll'; do
+for name in 'rsvg-*.dll' 'croco-*.dll' 'gdk_pixbuf-*.dll'; do
     f=$(find "${bindir}" -maxdepth 1 -name "${name}" -type f | head -n1)
     [[ -n "${f}" ]] && print_metric "$(basename "${f}" .dll)" "${f#"${dir}"/}" "${f}"
 done
