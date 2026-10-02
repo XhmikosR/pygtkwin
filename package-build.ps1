@@ -20,18 +20,26 @@ function Get-TreeSize([string]$Path) {
     '{0:N1} MiB' -f ($bytes / 1MB)
 }
 
-Copy-Item vcpkg/installed vcpkg_installed -Recurse
+# Copy-Item would nest the copy in an existing tree, and 7z would add to an
+# existing archive
+foreach ($stale in 'vcpkg_installed', $Archive) {
+    if (Test-Path -LiteralPath $stale) {
+        Remove-Item -LiteralPath $stale -Recurse -Force
+    }
+}
+
+# Only the target triplet, not vcpkg's metadata or another tree
+$tree = Join-Path vcpkg_installed $Triplet
+New-Item -ItemType Directory -Path vcpkg_installed | Out-Null
+Copy-Item (Join-Path vcpkg/installed $Triplet) $tree -Recurse
 Write-Output "Size before cleanup: $(Get-TreeSize vcpkg_installed)"
 
-$tree = Join-Path vcpkg_installed $Triplet
 $debug = Join-Path $tree debug
 if (Test-Path $debug) {
     Remove-Item $debug -Recurse -Force
 }
 
 Get-ChildItem (Join-Path $tree bin) -Filter *.pdb | Remove-Item -Force
-# Keep only the target triplet, not vcpkg's metadata or another tree
-Get-ChildItem vcpkg_installed -Force | Where-Object Name -ne $Triplet | Remove-Item -Recurse -Force
 Write-Output "Size after cleanup: $(Get-TreeSize vcpkg_installed)"
 
 7z a -bso0 -bsp0 -t7z -m0=LZMA2 "-mx=$Level" -mmt=on $Archive vcpkg_installed

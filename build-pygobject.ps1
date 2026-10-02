@@ -17,10 +17,14 @@ if (-not (Test-Path -LiteralPath $env:PYTHON -PathType Leaf)) {
     throw "Python executable not found at $env:PYTHON"
 }
 
+# For example 3.12 and 312
+$pyVersion = & $env:PYTHON -c 'import sysconfig; print(sysconfig.get_python_version())'
+$pyTag = $pyVersion.Replace('.', '')
+
 $version = $env:PYGOBJECT_VERSION
 $series = ($version -split '\.')[0..1] -join '.'
 $tarball = 'pygobject.tar.gz'
-Invoke-WebRequest "https://download.gnome.org/sources/pygobject/$series/pygobject-$version.tar.gz" -OutFile $tarball
+Invoke-WebRequest "https://download.gnome.org/sources/pygobject/$series/pygobject-$version.tar.gz" -OutFile $tarball -MaximumRetryCount 3 -RetryIntervalSec 5
 $hash = (Get-FileHash $tarball -Algorithm SHA256).Hash
 Write-Output "SHA256 $tarball $hash"
 if ($hash -ne $env:PYGOBJECT_SHA256) {
@@ -28,15 +32,15 @@ if ($hash -ne $env:PYGOBJECT_SHA256) {
 }
 tar -xf $tarball
 
-# The GTK build's Python ships without pip
+# The GTK build's Python ships without pip. The bundled one is enough and
+# stays pinned through the vcpkg commit.
 & $env:PYTHON -m ensurepip --upgrade
-& $env:PYTHON -m pip install --upgrade pip
 & $env:PYTHON -m pip install --no-deps -r (Join-Path $PSScriptRoot 'requirements.txt')
 # No pip check: the pkgconf Windows wheel's metadata claims linux_x86_64
 
 $libs = Join-Path $env:PYTHON_DIR 'libs'
 New-Item -ItemType Directory -Force -Path $libs | Out-Null
-Copy-Item (Join-Path $env:VCPKG_DIR 'lib\python312.lib') $libs
+Copy-Item (Join-Path $env:VCPKG_DIR "lib\python$pyTag.lib") $libs
 
 # meson needs cl, and only this step builds C code outside vcpkg
 $vsPath = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
@@ -48,7 +52,7 @@ $env:PKG_CONFIG = Join-Path $env:VCPKG_DIR 'tools\python3\Lib\site-packages\pkgc
 $env:PKG_CONFIG_PATH = Join-Path $env:VCPKG_DIR 'lib\pkgconfig'
 $env:CC = 'cl'
 $env:CXX = 'cl'
-$env:CL = "$(& $env:PKG_CONFIG --cflags python-3.12)".Trim()
+$env:CL = "$(& $env:PKG_CONFIG --cflags "python-$pyVersion")".Trim()
 
 $source = Join-Path $PWD "pygobject-$version"
 Push-Location $source
@@ -60,7 +64,7 @@ finally {
     Pop-Location
 }
 
-$wheel = Join-Path $source "dist\pygobject-$version-cp312-cp312-$WheelTag.whl"
+$wheel = Join-Path $source "dist\pygobject-$version-cp$pyTag-cp$pyTag-$WheelTag.whl"
 if (-not (Test-Path -LiteralPath $wheel -PathType Leaf)) {
     throw "$wheel does not exist"
 }

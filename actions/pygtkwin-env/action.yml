@@ -1,4 +1,4 @@
-name: pygtkwin environemnt
+name: pygtkwin environment
 description: |
   Initializes pygtkwin environment
 runs:
@@ -19,5 +19,4 @@ runs:
         $pythonExe = Join-Path $pythonDir 'python.exe'
         [System.IO.File]::AppendAllText($env:GITHUB_ENV, "PYTHON=$pythonExe`n")
 
-        $updatedPath = "$pythonDir;$pythonDir\Scripts;$env:PATH"
-        [System.IO.File]::AppendAllText($env:GITHUB_ENV, "PATH=$updatedPath`n")
+        [System.IO.File]::AppendAllText($env:GITHUB_PATH, "$pythonDir`n$pythonDir\Scripts`n")

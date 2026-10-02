@@ -12,8 +12,9 @@ param(
 $ErrorActionPreference = 'Stop'
 $PSNativeCommandUseErrorActionPreference = $true
 
-# pycairo, its only dependency, comes pinned from requirements.txt
-& $env:PYTHON -m pip install --no-deps $Wheel
+# pycairo, its only dependency, comes pinned from requirements.txt. A rebuilt
+# wheel keeps its version, so pip has to replace the installed one.
+& $env:PYTHON -m pip install --no-deps --force-reinstall $Wheel
 
 $bin = Join-Path $env:VCPKG_DIR 'bin'
 $typelibs = Join-Path $env:VCPKG_DIR 'lib\girepository-1.0'
