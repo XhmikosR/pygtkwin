@@ -33,9 +33,15 @@ def main():
     gi.require_version("Gtk", "3.0")
     from gi.repository import Gio, GioWin32, GLibWin32, Gtk  # noqa: F401
 
-    assert hasattr(GLibWin32, "get_command_line")
-    assert hasattr(GioWin32.InputStream, "get_handle")
-    assert hasattr(GioWin32.OutputStream, "get_handle")
+    missing = []
+    if not hasattr(GLibWin32, "get_command_line"):
+        missing.append("GLibWin32.get_command_line")
+    for cls in (GioWin32.InputStream, GioWin32.OutputStream):
+        if not hasattr(cls, "get_handle"):
+            missing.append(f"GioWin32.{cls.__name__}.get_handle")
+    if missing:
+        print(f"FAIL: missing {', '.join(missing)}")
+        sys.exit(1)
     print("PASS: GLibWin32 and GioWin32 typelibs loaded")
 
 

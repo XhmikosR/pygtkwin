@@ -12,6 +12,24 @@ libcrypto-3.dll / libssl-3.dll are on the DLL search path.
 import getopt
 import os
 import sys
+import time
+
+
+def with_retries(func, attempts=3, delay=5):
+    """Call func, retrying network errors but not TLS failures."""
+    import http.client
+    import ssl
+
+    for attempt in range(1, attempts + 1):
+        try:
+            return func()
+        except (OSError, http.client.HTTPException) as err:
+            # urllib wraps the underlying error in URLError.reason
+            tls_error = isinstance(err, ssl.SSLError) or isinstance(getattr(err, "reason", None), ssl.SSLError)
+            if tls_error or attempt == attempts:
+                raise
+            print(f"Attempt {attempt} failed: {err}; retrying in {delay}s")
+            time.sleep(delay)
 
 
 def main():
@@ -55,10 +73,13 @@ def main():
     # 1. Low-level handshake: confirm TLS negotiates 1.2 or 1.3 with a valid
     #    certificate chain (create_default_context enables verification).
     ctx = ssl.create_default_context()
-    with socket.create_connection((host, port), timeout=timeout) as raw:
-        with ctx.wrap_socket(raw, server_hostname=host) as ssock:
-            version = ssock.version()
-            cipher = ssock.cipher()
+
+    def handshake():
+        with socket.create_connection((host, port), timeout=timeout) as raw:
+            with ctx.wrap_socket(raw, server_hostname=host) as ssock:
+                return ssock.version(), ssock.cipher()
+
+    version, cipher = with_retries(handshake)
     print(f"TLS handshake OK: {version}, cipher={cipher[0] if cipher else '?'}")
     if version not in ("TLSv1.2", "TLSv1.3"):
         print(f"FAIL: negotiated {version}, expected TLSv1.2 or TLSv1.3")
@@ -70,9 +91,12 @@ def main():
     #    page.
     url = f"https://{host}{path}"
     req = urllib.request.Request(url, headers={"User-Agent": "pygtkwin-smoke-test"})
-    with urllib.request.urlopen(req, context=ctx, timeout=timeout) as resp:
-        status = resp.status
-        body = resp.read()
+
+    def fetch():
+        with urllib.request.urlopen(req, context=ctx, timeout=timeout) as resp:
+            return resp.status, resp.read()
+
+    status, body = with_retries(fetch)
     print(f"HTTPS GET {url} -> {status}, {len(body)} bytes")
     if status != 200:
         print(f"FAIL: HTTP status {status}")
