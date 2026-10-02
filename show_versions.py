@@ -7,7 +7,6 @@ import ctypes.util
 from ctypes import wintypes
 
 
-
 def print_gi_versions():
     """Print versions of GTK, Pango, etc."""
     gi = None
@@ -25,9 +24,8 @@ def print_gi_versions():
     try:
         gi.require_version("Gtk", "3.0")
         from gi.repository import Gtk
-    except ImportError as e:
+    except (ImportError, ValueError) as e:
         print(f"GTK not available: {e}")
-        print("Last Windows error:", ctypes.get_last_error())
     else:
         print(f"Gtk version: {Gtk.get_major_version()}.{Gtk.get_minor_version()}.{Gtk.get_micro_version()}")
 
@@ -37,6 +35,7 @@ def print_gi_versions():
         print(f"Pango version: {Pango.version_string()}")
     except (ImportError, ValueError) as e:
         print(f"Pango not available: {e}")
+
 
 def print_versions():
     """Print versions of Python, GTK, etc."""
@@ -58,15 +57,16 @@ def print_versions():
     else:
         print("HarfBuzz version: unavailable")
 
-    vcruntime_dll = ctypes.WinDLL("vcruntime140.dll")
-    if vcruntime_dll:
+    try:
+        vcruntime_dll = ctypes.WinDLL("vcruntime140.dll")
+    except OSError:
+        print("vcruntime140.dll not available")
+    else:
         vcruntime_version = get_file_version(vcruntime_dll._name)
         if vcruntime_version:
             print(f"vcruntime140.dll version: {'.'.join(map(str, vcruntime_version))}")
         else:
             print("vcruntime140.dll version: unavailable")
-    else:
-        print("vcruntime140.dll not available")
 
 
 def _get_fontconfig_version():
@@ -113,14 +113,15 @@ def get_file_version(path):
         return None
 
     vs_fixed = ctypes.cast(lptr, ctypes.POINTER(ctypes.c_uint32 * (lsize.value // 4))).contents
-    ms = vs_fixed[1]
-    ls = vs_fixed[2]
+    # VS_FIXEDFILEINFO starts with the signature and the struct version
+    ms = vs_fixed[2]
+    ls = vs_fixed[3]
     return ((ms >> 16) & 0xFFFF, ms & 0xFFFF, (ls >> 16) & 0xFFFF, ls & 0xFFFF)
 
 
 def main():
     """Main entry point"""
-    if not os.name == "nt":
+    if os.name != "nt":
         print("This script is only for Windows")
         sys.exit(1)
 
@@ -132,17 +133,18 @@ def main():
 
     for opt, arg in opts:
         if opt in ("-h", "--help"):
-            print(f"Usage: {os.path.basename(sys.argv[0])} [--add-path=dir]")
+            print(f"Usage: {os.path.basename(sys.argv[0])} [--dll-directory=DIR]")
             sys.exit()
         elif opt in ("-d", "--dll-directory"):
             os.add_dll_directory(arg)
 
     print("Environment PATH:")
     print(os.environ['PATH'].split(os.pathsep))
-    print("\nPython DLL search path:")
+    print("\nPython module search path:")
     print(sys.path)
 
     print_versions()
+
 
 if __name__ == "__main__":
     main()
