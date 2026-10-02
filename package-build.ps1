@@ -34,5 +34,5 @@ Get-ChildItem (Join-Path $tree bin) -Filter *.pdb | Remove-Item -Force
 Get-ChildItem vcpkg_installed -Force | Where-Object Name -ne $Triplet | Remove-Item -Recurse -Force
 Write-Output "Size after cleanup: $(Get-TreeSize vcpkg_installed)"
 
-7z a -bso0 -bsp0 -t7z "-mx=$Level" -mmt=on $Archive vcpkg_installed
+7z a -bso0 -bsp0 -t7z -m0=LZMA2 "-mx=$Level" -mmt=on $Archive vcpkg_installed
 Write-Output "$((Get-FileHash $Archive -Algorithm SHA256).Hash.ToLower())  $Archive"

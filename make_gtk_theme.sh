@@ -227,6 +227,6 @@ if [ -n "${cache_root}" ]; then
     rm -rf -- "${cache_root}.old"
 fi
 
-7z a -t7z -mx=9 -mmt=on "${current_dir}/gtk-themes.7z" gtk-themes
+7z a -t7z -m0=LZMA2 -mx=9 -mmt=on "${current_dir}/gtk-themes.7z" gtk-themes
 du -b "${current_dir}/gtk-themes.7z"
 sha256sum "${current_dir}/gtk-themes.7z"
