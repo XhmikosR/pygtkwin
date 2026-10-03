@@ -1,8 +1,13 @@
 diff --git a/ports/openssl/portfile.cmake b/ports/openssl/portfile.cmake
 --- a/ports/openssl/portfile.cmake
 +++ b/ports/openssl/portfile.cmake
-@@ -30,4 +30,43 @@
-     enable-capieng
+@@ -26,10 +26,58 @@ vcpkg_from_github(
+ )
+ 
+ vcpkg_list(SET CONFIGURE_OPTIONS
+-    enable-static-engine
+-    enable-capieng
++    no-engine
      no-tests
      no-docs
 +    # BleachBit debloat: build a TLS 1.2/1.3 client only.
@@ -44,4 +49,16 @@ diff --git a/ports/openssl/portfile.cmake b/ports/openssl/portfile.cmake
 +    no-gost
 +    no-cmp
 +    no-nextprotoneg
++    # CPython's _ssl and _hashlib don't use these either
++    no-quic
++    no-ocsp
++    no-http
++    no-des
++    no-ocb
++    no-siv
++    no-argon2
++    no-rfc3779
++    no-filenames
  )
+ 
+ # https://github.com/openssl/openssl/blob/master/INSTALL.md#enable-ec_nistp_64_gcc_128
