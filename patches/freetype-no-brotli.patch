@@ -1,0 +1,19 @@
+diff --git a/ports/freetype/vcpkg.json b/ports/freetype/vcpkg.json
+--- a/ports/freetype/vcpkg.json
++++ b/ports/freetype/vcpkg.json
+@@ -1,6 +1,7 @@
+ {
+   "name": "freetype",
+   "version": "2.14.3",
++  "port-version": 1,
+   "description": "A library to render fonts.",
+   "homepage": "https://www.freetype.org/",
+   "license": "FTL OR GPL-2.0-or-later",
+@@ -15,7 +16,6 @@
+     }
+   ],
+   "default-features": [
+-    "brotli",
+     "bzip2",
+     "png",
+     "zlib"
