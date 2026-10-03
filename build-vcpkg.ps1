@@ -38,11 +38,11 @@ Push-Location (Join-Path $PSScriptRoot 'vcpkg')
 try {
     if ($Phase -ne 'Install') {
         # Start from the pinned commit, so Prepare can run again on this checkout
-        $patched = 'ports/glib', 'ports/gdk-pixbuf', 'ports/librsvg', 'ports/openssl', 'versions'
+        $patched = 'ports/glib', 'ports/gdk-pixbuf', 'ports/freetype', 'ports/librsvg', 'ports/openssl', 'versions'
         git restore --source=HEAD --staged --worktree -- @patched
         git clean -fdq -- @patched
 
-        foreach ($patch in '0002-vcpkg-glib-unc.patch', 'gdk-pixbuf-png-only.patch', '0005-vcpkg-openssl-debloat.patch') {
+        foreach ($patch in '0002-vcpkg-glib-unc.patch', 'gdk-pixbuf-png-only.patch', 'freetype-no-brotli.patch', '0005-vcpkg-openssl-debloat.patch') {
             git apply --ignore-whitespace --whitespace=nowarn (Join-Path $patches $patch)
         }
 
@@ -50,9 +50,11 @@ try {
         (Get-Content ./ports/librsvg/portfile.cmake) -replace 'meson-pkgconfig-and-def-file\.patch', "meson-pkgconfig-and-def-file.patch`n        add-pixbufloader-svg.patch" | Set-Content ./ports/librsvg/portfile.cmake
 
         ./bootstrap-vcpkg.bat -disableMetrics
-        ./vcpkg format-manifest ports/gdk-pixbuf/vcpkg.json
-        git add ports/gdk-pixbuf
-        ./vcpkg x-add-version gdk-pixbuf
+        foreach ($port in 'gdk-pixbuf', 'freetype') {
+            ./vcpkg format-manifest ports/$port/vcpkg.json
+            git add ports/$port
+            ./vcpkg x-add-version $port
+        }
     }
 
     if ($Phase -eq 'Prepare') {
