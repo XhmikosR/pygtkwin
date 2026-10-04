@@ -57,8 +57,11 @@ $env:CL = "$(& $env:PKG_CONFIG --cflags "python-$pyVersion")".Trim()
 $source = Join-Path $PWD "pygobject-$version"
 Push-Location $source
 try {
+    # The link flags match the vcpkg triplets
+    $config = "-Dc_link_args=['/RELEASE','/OPT:REF','/OPT:ICF']" |
+        ForEach-Object { "--config-setting=setup-args=$_" }
     # The build dependencies are pinned in requirements.txt
-    & $env:PYTHON -m build --wheel --no-isolation
+    & $env:PYTHON -m build --wheel --no-isolation @config
 }
 finally {
     Pop-Location
