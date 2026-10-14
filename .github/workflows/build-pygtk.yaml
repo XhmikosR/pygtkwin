@@ -50,7 +50,7 @@ jobs:
           - triplet: x64-windows
 
     env:
-      VCPKG_COMMIT: '7ece2c79b95131924820fb67c977abb3c4602724'
+      VCPKG_COMMIT: '09813dd26a8d9b8d13863f92dba1ebed1698270e'
       VCPKG_TRIPLET: ${{ matrix.triplet }}
       # gobject-introspection runs the built binaries, so host = target
       VCPKG_DEFAULT_HOST_TRIPLET: ${{ matrix.triplet }}
@@ -72,7 +72,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: '3.12'
+          python-version: '3.14'
 
       - name: Install Python requirements
         shell: bash

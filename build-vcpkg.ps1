@@ -38,11 +38,11 @@ Push-Location (Join-Path $PSScriptRoot 'vcpkg')
 try {
     if ($Phase -ne 'Install') {
         # Start from the pinned commit, so Prepare can run again on this checkout
-        $patched = 'ports/glib', 'ports/gdk-pixbuf', 'ports/librsvg', 'versions'
+        $patched = 'ports/gdk-pixbuf', 'ports/librsvg', 'versions'
         git restore --source=HEAD --staged --worktree -- @patched
         git clean -fdq -- @patched
 
-        foreach ($patch in '0002-vcpkg-glib-unc.patch', 'gdk-pixbuf-png-only.patch') {
+        foreach ($patch in 'gdk-pixbuf-png-only.patch') {
             git apply --ignore-whitespace --whitespace=nowarn (Join-Path $patches $patch)
         }
 
