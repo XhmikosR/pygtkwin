@@ -50,7 +50,7 @@ jobs:
           - triplet: x64-windows
 
     env:
-      VCPKG_COMMIT: '7ece2c79b95131924820fb67c977abb3c4602724'
+      VCPKG_COMMIT: '3b7d3d72ff595f1a4180bfae6418ea874206b5f1'
       VCPKG_TRIPLET: ${{ matrix.triplet }}
       # gobject-introspection runs the built binaries, so host = target
       VCPKG_DEFAULT_HOST_TRIPLET: ${{ matrix.triplet }}
@@ -72,7 +72,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
-          python-version: '3.12'
+          python-version: '3.14'
 
       # vcpkg runs `python -m virtualenv` with the first python on PATH. A
       # venv keeps the pins away from the runner's own packages, like pipx.

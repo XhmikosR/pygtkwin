@@ -17,7 +17,7 @@ if (-not (Test-Path -LiteralPath $env:PYTHON -PathType Leaf)) {
     throw "Python executable not found at $env:PYTHON"
 }
 
-# For example 3.12 and 312
+# For example 3.14 and 314
 $pyVersion = & $env:PYTHON -c 'import sysconfig; print(sysconfig.get_python_version())'
 $pyTag = $pyVersion.Replace('.', '')
 
